@@ -31,3 +31,55 @@ public:
     T length() const { return sqrt(length_sq())}
 
 };
+
+typedef Vec3<float> Vec3f;
+
+class Sphere
+{
+public:
+    Vec3f centre;
+    float radius, radius2;
+    Vec3f surfaceCol, emissionCol;
+    float transparency, reflection;
+    Sphere(
+        const Vec3f &c,
+        const float &r,
+        const Vec3f &sc,
+        const float &refl = 0,
+        const float &transp = 0,
+        const Vec3f &ec = 0) :
+        centre(c), radius(r), radius2(r * r), surfaceCol(sc), emissionCol(ec),
+        transparency(transp), reflection(refl)
+    { /* empty */ }
+    
+    //[comment]
+    // Compute a ray-sphere intersection using the geometric solution
+    //[/comment]
+    bool intercept(const Vec3f &rayorig, const Vec3f &raydir, float &t0, float &t1) const
+    {
+        Vec3f l = centre - rayorig;
+        float tc = l.dotProduct(raydir);
+        // points in wrong direction, exit
+        if (tc < 0) return false;
+        // use pythag to find square distance between sphere centre to closest ray point
+        float d2 = l.dotProduct(l) - tc * tc;
+        if (d2 > radius2) return false;
+        // thc is dist from closest ray point to sphere interception point
+        float thc = sqrt(radius2 - d2);
+        t0 = tc - thc;
+        t1 = tc + thc;
+        
+        return true;
+    }
+};
+
+//[comment]
+    // returns a mixed value of a and b according to mix weighting, determining b's weighting
+//[/comment]
+float mix(const float &a, const float &b, const float &mix)
+{
+    return b * mix + a * (1 - mix);
+}
+
+
+
