@@ -3,6 +3,8 @@
 #include <vector>
 #include <iostream>
 
+#define MAX_RAY_DEPTH 3 
+
 template<typename T>
 class Vec3 
 {
@@ -54,9 +56,7 @@ public:
         transparency(transp), reflection(refl)
     { /* empty */ }
     
-    //[comment]
     // Compute a ray-sphere intersection using the geometric solution
-    //[/comment]
     bool intercept(const Vec3f &rayorig, const Vec3f &raydir, float &t0, float &t1) const
     {
         Vec3f l = centre - rayorig;
@@ -75,17 +75,14 @@ public:
     }
 };
 
-//[comment]
-    // returns a mixed value of a and b according to mix weighting, determining b's weighting
-//[/comment]
+
+//returns a mixed value of a and b according to mix weighting, determining b's weighting
 float mix(const float &a, const float &b, const float &mix)
 {
     return b * mix + a * (1 - mix);
 }
 
-//[comment]
-    // 
-//[/comment]
+// 
 Vec3f trace(
     const Vec3f &rayorig,
     const Vec3f &raydir,
@@ -93,9 +90,23 @@ Vec3f trace(
     const int &depth
 ) 
 {
+    const Sphere* closestSphere = NULL;
+    float closest = INFINITY;
+    for (int i = 0; i < spheres.size(); i++) {
+        float t0 = INFINITY, t1 = INFINITY;
+        if (spheres[i].intercept(rayorig, raydir, t0, t1)) {
+            if (t0 < 0) t0 = t1;
+            if (t0 < closest) {
+                closest = t0;
+                closestSphere = &spheres[i];
+            }
+        }
+    }
+
+    if (!closestSphere) return Vec3f(0);
+
     return Vec3f(1);
 }
-
 
 void render(const std::vector<Sphere> &spheres)
 {
@@ -109,25 +120,25 @@ void render(const std::vector<Sphere> &spheres)
         for (unsigned x = 0; x < width; ++x, ++pixel) {
             float xx = (2 * ((x + 0.5) * invWidth) - 1) * angle * aspectratio;
             float yy = (1 - 2 * ((y + 0.5) * invHeight)) * angle;
-            Vec3f raydir(xx, yy, -1);
+            Vec3f raydir(xx, yy, 1);
             raydir.normalize();
             *pixel = trace(Vec3f(0), raydir, spheres, 0);
         }
     }
-    
     std::cout << "P3\n" << width << ' ' << height << "\n255\n";
-
     for (int i = 0; i < height * width; i++) {
         std::cout << (std::min(float(1), image[i].x) * 255) << ' ' << 
                      (std::min(float(1), image[i].y) * 255) << ' ' << 
                      (std::min(float(1), image[i].z) * 255) << '\n';
     }
-
 }
 
 int main(int argc, char **argv)
 {
     std::vector<Sphere> spheres;
+    spheres.push_back(Sphere(Vec3f(0, 0, 8), 0.1, Vec3f(1)));
+    spheres.push_back(Sphere(Vec3f(1, 0, 8), 0.2, Vec3f(1)));
+    spheres.push_back(Sphere(Vec3f(2, 1, 8), 0.3, Vec3f(1)));
 
     render(spheres);
     
