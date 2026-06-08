@@ -17,6 +17,10 @@ public:
     Vec3<T> operator * (const T &scalar) const { return Vec3<T>(x * scalar, y * scalar, z * scalar); }
     Vec3<T> operator - (const Vec3<T> &v) const { return Vec3<T>(x - v.x, y - v.y, z - v.z); }
     Vec3<T> operator + (const Vec3<T> &v) const { return Vec3<T>(x + v.x, y + v.y, z + v.z); }
+    Vec3<T> operator * (const Vec3<T> &v) const { return Vec3<T>(x * v.x, y * v.y, z * v.z); }
+    Vec3<T> operator - () const { return Vec3<T>(-x, -y, -z); }
+
+    Vec3<T>& operator += (const Vec3<T> &v) { x += v.x, y += v.y, z += v.z; return *this; }
 
     Vec3& normalize()
     {
@@ -57,7 +61,7 @@ public:
     { /* empty */ }
     
     // Compute a ray-sphere intersection using the geometric solution
-    bool intercept(const Vec3f &rayorig, const Vec3f &raydir, float &t0, float &t1) const
+    bool intersect(const Vec3f &rayorig, const Vec3f &raydir, float &t0, float &t1) const
     {
         Vec3f l = centre - rayorig;
         float tc = l.dotProduct(raydir);
@@ -90,11 +94,15 @@ Vec3f trace(
     const int &depth
 ) 
 {
+    // TODO: figure out handling raydir automatic normalisation
+
+    const Vec3f bg_col = Vec3f(0);
+
     const Sphere* closestSphere = NULL;
     float closest = INFINITY;
     for (int i = 0; i < spheres.size(); i++) {
         float t0 = INFINITY, t1 = INFINITY;
-        if (spheres[i].intercept(rayorig, raydir, t0, t1)) {
+        if (spheres[i].intersect(rayorig, raydir, t0, t1)) {
             if (t0 < 0) t0 = t1;
             if (t0 < closest) {
                 closest = t0;
@@ -103,14 +111,48 @@ Vec3f trace(
         }
     }
 
-    if (!closestSphere) return Vec3f(0);
+    if (!closestSphere) return bg_col;
 
-    return Vec3f(1);
+    float bias = 1e-4;
+
+    Vec3f pHit = rayorig + (raydir * closest);
+    Vec3f nHit = (pHit - closestSphere->centre);
+    nHit.normalize();
+    bool inside = false;
+    if (raydir.dotProduct(nHit) > 0) nHit = -nHit, inside = true;
+
+    Vec3f surfaceCol = 0;
+
+    // reflection
+    if (closestSphere->reflection > 0 || closestSphere->transparency > 0) {
+
+    }
+    // diffuse
+    else {
+        for (int i = 0; i < spheres.size(); i++) {
+            if (spheres[i].emissionCol.length_sq() < 0.001f) continue;
+            int transmission = 1;
+            Vec3f lightDir = spheres[i].centre - pHit;
+            lightDir.normalize();
+            for (int j = 0; j < spheres.size(); j++) {
+                if (i != j) {
+                    float t0, t1;
+                    if (spheres[j].intersect(pHit + nHit * bias, lightDir, t0, t1)) {
+                        transmission = 0;
+                        break;
+                    }
+                }
+            }
+            surfaceCol += (closestSphere->surfaceCol * transmission *
+                spheres[i].emissionCol * std::max(float(0), nHit.dotProduct(lightDir)));
+        }
+    }
+    return surfaceCol + closestSphere->emissionCol;
 }
 
 void render(const std::vector<Sphere> &spheres)
 {
-    unsigned width = 640, height = 480;
+    unsigned width = 128, height = 128;
     Vec3f *image = new Vec3f[width * height], *pixel = image;
     float invWidth = 1 / float(width), invHeight = 1 / float(height);
     float fov = 30, aspectratio = width / float(height);
@@ -127,18 +169,19 @@ void render(const std::vector<Sphere> &spheres)
     }
     std::cout << "P3\n" << width << ' ' << height << "\n255\n";
     for (int i = 0; i < height * width; i++) {
-        std::cout << (std::min(float(1), image[i].x) * 255) << ' ' << 
-                     (std::min(float(1), image[i].y) * 255) << ' ' << 
-                     (std::min(float(1), image[i].z) * 255) << '\n';
+        std::cout << (int)(std::min(float(1), image[i].x) * 255) << ' ' << 
+                     (int)(std::min(float(1), image[i].y) * 255) << ' ' << 
+                     (int)(std::min(float(1), image[i].z) * 255) << '\n';
     }
 }
 
 int main(int argc, char **argv)
 {
     std::vector<Sphere> spheres;
-    spheres.push_back(Sphere(Vec3f(0, 0, 8), 0.1, Vec3f(1)));
-    spheres.push_back(Sphere(Vec3f(1, 0, 8), 0.2, Vec3f(1)));
-    spheres.push_back(Sphere(Vec3f(2, 1, 8), 0.3, Vec3f(1)));
+    spheres.push_back(Sphere(Vec3f(0, 0, 14), 0.2, Vec3f(0.6)));
+
+    spheres.push_back(Sphere(Vec3f(0.0, 1, 8), 0.2, Vec3f(1), 0, 0, Vec3f(1)));
+
 
     render(spheres);
     
