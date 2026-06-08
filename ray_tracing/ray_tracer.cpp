@@ -1,5 +1,7 @@
 
 #include <cmath>
+#include <vector>
+#include <iostream>
 
 template<typename T>
 class Vec3 
@@ -10,9 +12,9 @@ public:
     Vec3(T xx) : x(xx), y(xx), z(xx) {}
     Vec3(T xx, T yy, T zz) : x(xx), y(yy), z(zz) {}
 
-    Vec3<T> operator * (const T &scalar) const { return Vec3<T>(x * scalar, y * scalar, z * scalar)}
-    Vec3<T> operator - (const Vec3<T> &v) const { return Vec3<T>(x - v.x, y - v.y, z - v.z) }
-    Vec3<T> operator + (const Vec3<T> &v) const { return Vec3<T>(x + v.x, y + v.y, z + v.z) }
+    Vec3<T> operator * (const T &scalar) const { return Vec3<T>(x * scalar, y * scalar, z * scalar); }
+    Vec3<T> operator - (const Vec3<T> &v) const { return Vec3<T>(x - v.x, y - v.y, z - v.z); }
+    Vec3<T> operator + (const Vec3<T> &v) const { return Vec3<T>(x + v.x, y + v.y, z + v.z); }
 
     Vec3& normalize()
     {
@@ -25,10 +27,10 @@ public:
         return *this;
     }
 
-    T dotProduct(const Vec3<T> &v) const { return x * v.x + y * v.y + z * v.z }
+    T dotProduct(const Vec3<T> &v) const { return x * v.x + y * v.y + z * v.z; }
 
-    T length_sq() const { return x * x + y * y + z * z}
-    T length() const { return sqrt(length_sq())}
+    T length_sq() const { return x * x + y * y + z * z; }
+    T length() const { return sqrt(length_sq()); }
 
 };
 
@@ -81,5 +83,53 @@ float mix(const float &a, const float &b, const float &mix)
     return b * mix + a * (1 - mix);
 }
 
+//[comment]
+    // 
+//[/comment]
+Vec3f trace(
+    const Vec3f &rayorig,
+    const Vec3f &raydir,
+    const std::vector<Sphere> &spheres,
+    const int &depth
+) 
+{
+    return Vec3f(1);
+}
 
 
+void render(const std::vector<Sphere> &spheres)
+{
+    unsigned width = 640, height = 480;
+    Vec3f *image = new Vec3f[width * height], *pixel = image;
+    float invWidth = 1 / float(width), invHeight = 1 / float(height);
+    float fov = 30, aspectratio = width / float(height);
+    float angle = tan(M_PI * 0.5 * fov / 180.0);
+
+    for (unsigned y = 0; y < height; ++y) {
+        for (unsigned x = 0; x < width; ++x, ++pixel) {
+            float xx = (2 * ((x + 0.5) * invWidth) - 1) * angle * aspectratio;
+            float yy = (1 - 2 * ((y + 0.5) * invHeight)) * angle;
+            Vec3f raydir(xx, yy, -1);
+            raydir.normalize();
+            *pixel = trace(Vec3f(0), raydir, spheres, 0);
+        }
+    }
+    
+    std::cout << "P3\n" << width << ' ' << height << "\n255\n";
+
+    for (int i = 0; i < height * width; i++) {
+        std::cout << (std::min(float(1), image[i].x) * 255) << ' ' << 
+                     (std::min(float(1), image[i].y) * 255) << ' ' << 
+                     (std::min(float(1), image[i].z) * 255) << '\n';
+    }
+
+}
+
+int main(int argc, char **argv)
+{
+    std::vector<Sphere> spheres;
+
+    render(spheres);
+    
+    return 0;
+}
