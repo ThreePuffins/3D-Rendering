@@ -140,7 +140,6 @@ Vec3f trace(
     }
     // diffuse
     else {
-
         for (int i = 0; i < spheres.size(); i++) {
             if (spheres[i].emissionCol.length_sq() < 0.001f) continue;
             int transmission = 1;
@@ -150,6 +149,7 @@ Vec3f trace(
                 if (i != j) {
                     float t0, t1;
                     if (spheres[j].intersect(pHit + nHit * bias, lightDir, t0, t1)) {
+                        if (t0 * t0 > lightDisplacement.length_sq()) continue;
                         transmission = 0;
                         break;
                     }
@@ -197,15 +197,19 @@ void render(const std::vector<Sphere> &spheres)
 int main(int argc, char **argv)
 {
     std::vector<Sphere> spheres;
-    spheres.push_back(Sphere(Vec3f(0,0,14), 3, Vec3f(0.3, 0.4, 0.5), 1));
+    spheres.push_back(Sphere(Vec3f(0,0,14), 4, Vec3f(0.3, 0.4, 0.5), 1));
 
-    spheres.push_back(Sphere(Vec3f(0,0,-10), 4, Vec3f(1, 1, 0.5)));
+    spheres.push_back(Sphere(Vec3f(0,0,-10), 3, Vec3f(1, 1, 1), 1));
 
-    spheres.push_back(Sphere(Vec3f(0,7,-8), 2, Vec3f(1, 1, 0.5)));
+    spheres.push_back(Sphere(Vec3f(0,7,-8), 2.5, Vec3f(0.4, 1, 0.5)));
+
+    spheres.push_back(Sphere(Vec3f(5,0,-8), 2.5, Vec3f(0.4, 1, 0.5)));
+
+    spheres.push_back(Sphere(Vec3f(-5,0,-8), 2.5, Vec3f(0.4, 1, 0.5)));
 
     spheres.push_back(Sphere(Vec3f(0,-7,-8), 2, Vec3f(1, 1, 0.5)));
 
-    spheres.push_back(Sphere(Vec3f(0, 1, -1), 0.1, Vec3f(0), 0, 0, Vec3f(1,1,1)));
+    spheres.push_back(Sphere(Vec3f(0, 0, -1), 0.1, Vec3f(0), 0, 0, Vec3f(0.1,1,1)));
 
 
     render(spheres);
