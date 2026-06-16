@@ -4,6 +4,7 @@
 #include <iostream>
 
 #define MAX_RAY_DEPTH 10
+#define AIR_REFRACTION_INDEX 1.00027717
 
 template<typename T>
 class Vec3 
@@ -48,16 +49,17 @@ public:
     Vec3f centre;
     float radius, radius2;
     Vec3f surfaceCol, emissionCol;
-    float transparency, reflection;
+    float transparency, refractIndex, reflection;
     Sphere(
         const Vec3f &c,
         const float &r,
         const Vec3f &sc,
         const float &refl = 0,
         const float &transp = 0,
+        const float &refrIndex = 0, //TODO: make transparency and all related variables a struct or similar
         const Vec3f &ec = 0) :
         centre(c), radius(r), radius2(r * r), surfaceCol(sc), emissionCol(ec),
-        transparency(transp), reflection(refl)
+        transparency(transp), refractIndex(refrIndex), reflection(refl)
     { /* empty */ }
     
     // Compute a ray-sphere intersection using the geometric solution
@@ -91,12 +93,13 @@ Vec3f trace(
     const Vec3f &rayorig,
     const Vec3f &rayDir,
     const std::vector<Sphere> &spheres,
+    const float &refractionIndex,
     const int &depth
 ) 
 {
     // TODO: figure out handling raydir automatic normalisation
 
-    const Vec3f bg_col = Vec3f(0);
+    const Vec3f bg_col = Vec3f(1,1,1);
 
     const Sphere* closestSphere = NULL;
     float closest = INFINITY;
@@ -126,17 +129,34 @@ Vec3f trace(
 
     // reflection
     if ((closestSphere->reflection > 0 || closestSphere->transparency > 0) && depth < MAX_RAY_DEPTH) {
-        //refraction ray
+        
         Vec3f reflectDir = rayDir - (nHit * (nHit.dotProduct(rayDir))) * 2;
         reflectDir.normalize();
         // TODO: figure out if inverse square law is necessary
-        Vec3f reflectionCol = trace(pHit, reflectDir, spheres, depth + 1);
+        Vec3f reflectionCol = trace(pHit, reflectDir, spheres, refractionIndex, depth + 1);
         
-        // TODO: REMOVE
-        surfaceCol = trace(pHit + nHit * bias, reflectDir, spheres, depth + 1);
+        Vec3f refractionCol = 0;
+        if (closestSphere->transparency) {
+            float refractionRatio = closestSphere->refractIndex / refractionIndex;
+            if (!inside) refractionRatio = 1 / refractionRatio;
+            // no division by magnitude bc they're normalised already
+            float cosTheta = -nHit.dotProduct(rayDir);
+            Vec3f refractDirPerp = (rayDir - nHit * cosTheta) * refractionRatio;
+            Vec3f refractDirPar = nHit * -sqrt(abs(1 - refractDirPerp.length_sq()));
+            Vec3f refractDir = refractDirPerp + refractDirPar;
+            refractDir.normalize();
+            // TODO: figure out checking the new refraction index
+            float newRefraction = (!inside) ? closestSphere->refractIndex : AIR_REFRACTION_INDEX;
+            refractionCol = trace(pHit + refractDir * bias, refractDir, spheres, newRefraction, depth + 1);
+        }
+        float facingRatio = -rayDir.dotProduct(nHit);
+        // this is a loose estimation of the real effect
+        float fresnelEffect = mix(pow(1 - facingRatio, 4), 1, 0.5);
 
-        //reflection ray
-
+        surfaceCol = (
+            reflectionCol * fresnelEffect +
+            refractionCol * (1 - fresnelEffect) * closestSphere->transparency) * closestSphere->surfaceCol;
+        //surfaceCol = (reflectionCol) * closestSphere->surfaceCol;
     }
     // diffuse
     else {
@@ -144,7 +164,7 @@ Vec3f trace(
             if (spheres[i].emissionCol.length_sq() < 0.001f) continue;
             int transmission = 1;
             Vec3f lightDisplacement = spheres[i].centre - pHit;
-            Vec3f lightDir = lightDisplacement.normalize();
+            Vec3f lightDir = (spheres[i].centre - pHit).normalize();
             for (int j = 0; j < spheres.size(); j++) {
                 if (i != j) {
                     float t0, t1;
@@ -156,9 +176,9 @@ Vec3f trace(
                 }
             }
             // Distance between pHit and light
-            float pHitLightDist = lightDisplacement.length() - closestSphere->radius
-                             - spheres[i].radius;
-            float inverseSqCoeff = (1 / (4 * M_PI * pHitLightDist * pHitLightDist));
+            // float pHitLightDist = lightDisplacement.length() - closestSphere->radius
+            //                  - spheres[i].radius;
+            // float inverseSqCoeff = (1 / (4 * M_PI * pHitLightDist * pHitLightDist));
             // TODO: figure out if inverse square law is necessary
 
             surfaceCol += (closestSphere->surfaceCol * transmission *
@@ -171,10 +191,10 @@ Vec3f trace(
 
 void render(const std::vector<Sphere> &spheres)
 {
-    unsigned width = 1028, height = 1028;
+    unsigned width = 1024, height = 1024;
     Vec3f *image = new Vec3f[width * height], *pixel = image;
     float invWidth = 1 / float(width), invHeight = 1 / float(height);
-    float fov = 30, aspectratio = width / float(height);
+    float fov = 60, aspectratio = width / float(height);
     float angle = tan(M_PI * 0.5 * fov / 180.0);
 
     for (int y = 0; y < height; y++) {
@@ -183,7 +203,7 @@ void render(const std::vector<Sphere> &spheres)
             float yy = (1 - 2 * ((y + 0.5) * invHeight)) * angle;
             Vec3f raydir(xx, yy, 1);
             raydir.normalize();
-            *pixel = trace(Vec3f(0), raydir, spheres, 0);
+            *pixel = trace(Vec3f(0), raydir, spheres, AIR_REFRACTION_INDEX, 0);
         }
     }
     std::cout << "P3\n" << width << ' ' << height << "\n255\n";
@@ -197,21 +217,18 @@ void render(const std::vector<Sphere> &spheres)
 int main(int argc, char **argv)
 {
     std::vector<Sphere> spheres;
-    spheres.push_back(Sphere(Vec3f(0,0,14), 4, Vec3f(0.3, 0.4, 0.5), 1));
+    spheres.push_back(Sphere(Vec3f( 0.0, -10004, 20), 10000, Vec3f(0.20, 0.20, 0.20), 0, 0.0));
+    spheres.push_back(Sphere(Vec3f( 0.0, 0, 20), 4, Vec3f(1.00, 0.32, 0.36), 0, 1.0, 1.5));
+    spheres.push_back(Sphere(Vec3f( 5.0, -1, 15), 3, Vec3f(0.90, 0.76, 0.46), 1, 0.0, 1.5));
+    spheres.push_back(Sphere(Vec3f( 5.0, 0, 25), 4, Vec3f(0.65, 0.77, 0.97), 1, 0.0, 1.5));
+    spheres.push_back(Sphere(Vec3f(-5.5, 0, 15), 4, Vec3f(0.90, 0.90, 0.90), 1, 0.0, 1.5));
+    spheres.push_back(Sphere(Vec3f( 0.0, 10026, 20), 10000, Vec3f(1, 1, 1), 1, 0.0));
+    
 
-    spheres.push_back(Sphere(Vec3f(0,0,-10), 3, Vec3f(1, 1, 1), 1));
-
-    spheres.push_back(Sphere(Vec3f(0,7,-8), 2.5, Vec3f(0.4, 1, 0.5)));
-
-    spheres.push_back(Sphere(Vec3f(5,0,-8), 2.5, Vec3f(0.4, 1, 0.5)));
-
-    spheres.push_back(Sphere(Vec3f(-5,0,-8), 2.5, Vec3f(0.4, 1, 0.5)));
-
-    spheres.push_back(Sphere(Vec3f(0,-7,-8), 2, Vec3f(1, 1, 0.5)));
-
-    spheres.push_back(Sphere(Vec3f(0, 0, -1), 0.1, Vec3f(0), 0, 0, Vec3f(0.1,1,1)));
-
-
+    // lights
+    spheres.push_back(Sphere(Vec3f( -7, 20, 30), 0.4, Vec3f(0.00, 0.00, 0.00), 0, 0, 0.0, Vec3f(4,0,2)));
+    spheres.push_back(Sphere(Vec3f( 7, 20, 30), 0.4, Vec3f(0.00, 0.00, 0.00), 0, 0, 0.0, Vec3f(0,4,2)));
+    
     render(spheres);
     
     return 0;
