@@ -13,6 +13,14 @@ int main(int argc, char** argv) {
     TGAImage framebuffer(width, height, TGAImage::RGB);
 
     int x0 = 7, y0 = 20, x1 = 10, y1 = 100;
+    
+    drawLine(x0, x1, y0, y1, framebuffer, white);
+
+    framebuffer.write_tga_file("framebuffer.tga");
+    return 0;
+}
+
+void drawLine(int x0, int x1, int y0, int y1, TGAImage &framebuffer, TGAColor color) {
     bool swap = false;
     if ((y1 - y0) / (x1 - x0) > 1) {
         std::swap(x0,y0);
@@ -24,8 +32,4 @@ int main(int argc, char** argv) {
         if (!swap) framebuffer.set(x, y, white);
         else framebuffer.set(y, x, white);
     }
-
-    framebuffer.write_tga_file("framebuffer.tga");
-    return 0;
 }
-
