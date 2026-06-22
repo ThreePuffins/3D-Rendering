@@ -8,18 +8,24 @@ constexpr TGAColor blue    = {255, 128,  64, 255};
 constexpr TGAColor yellow  = {  0, 200, 255, 255};
 
 int main(int argc, char** argv) {
-    constexpr int width  = 64;
-    constexpr int height = 64;
+    constexpr int width  = 128;
+    constexpr int height = 128;
     TGAImage framebuffer(width, height, TGAImage::RGB);
 
-    int ax =  7, ay =  3;
-    int bx = 12, by = 37;
-    int cx = 62, cy = 53;
-
-    framebuffer.set(ax, ay, white);
-    framebuffer.set(bx, by, white);
-    framebuffer.set(cx, cy, white);
+    int x0 = 7, y0 = 20, x1 = 10, y1 = 100;
+    bool swap = false;
+    if ((y1 - y0) / (x1 - x0) > 1) {
+        std::swap(x0,y0);
+        std::swap(x1,y1);
+        swap = true;
+    }
+    for (int x = x0; x < x1; x++) {
+        int y = (int)(y0 + (y1 - y0) * (x - x0) / (x1 - x0));
+        if (!swap) framebuffer.set(x, y, white);
+        else framebuffer.set(y, x, white);
+    }
 
     framebuffer.write_tga_file("framebuffer.tga");
     return 0;
 }
+
