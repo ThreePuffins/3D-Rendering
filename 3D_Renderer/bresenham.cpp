@@ -21,7 +21,7 @@ void drawLine(int x0, int x1, int y0, int y1, TGAImage &framebuffer, TGAColor co
     }
     int y = y0;
     float interror = 0;
-    for (int x = x0; x < x1; x++) {
+    for (int x = x0; x <= x1; x++) {
         if (!steep) framebuffer.set(x, y, color);
         else framebuffer.set(y, x, color);
         interror += 2 * std::abs(y1 - y0);
