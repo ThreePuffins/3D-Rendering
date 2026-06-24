@@ -1,5 +1,6 @@
 #include <cmath>
 #include "tgaimage.h"
+#include <iostream>
 
 constexpr TGAColor white   = {255, 255, 255, 255}; // attention, BGRA order
 constexpr TGAColor green   = {  0, 255,   0, 255};
@@ -32,7 +33,13 @@ void drawLine(int x0, int x1, int y0, int y1, TGAImage &framebuffer, TGAColor co
     }
 }
 
+
+
 int main(int argc, char** argv) {
+    if (argc != 2) {
+        std::cerr << "Usage: " << argv[0] << "path/to/.obj" << std::endl;
+        return 1;
+    } 
     constexpr int width  = 64;
     constexpr int height = 64;
     TGAImage framebuffer(width, height, TGAImage::RGB);
