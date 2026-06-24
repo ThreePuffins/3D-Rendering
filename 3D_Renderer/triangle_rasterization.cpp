@@ -44,12 +44,52 @@ void drawWireTriangle(int x1, int y1, int x2, int y2, int x3, int y3, TGAImage &
     drawLine(x3, x1, y3, y1, framebuffer, col);
 }
 
+void drawTriangle(int x1, int y1, int x2, int y2, int x3, int y3, TGAImage &framebuffer, TGAColor col) {
+    // sort vertices by y-coords (1 is y big, 3 is y smol)
+    if (y1 < y2) {
+        std::swap(x1, x2);
+        std::swap(y1, y2);
+    }
+    if (y1 < y3) {
+        std::swap(x1, x3);
+        std::swap(y1, y3);
+    }
+    if (y2 < y3) {
+        std::swap(x2, x3);
+        std::swap(y2, y3);
+    }
+
+    // rasterize l and r edges
+    drawLine(x1, x2, y1, y2, framebuffer, col);
+    drawLine(x2, x3, y2, y3, framebuffer, col);
+    drawLine(x3, x1, y3, y1, framebuffer, col);
+    // since 1 -> 3 is larger y gap, we know that the two sides are between 1-3 and 1-2-3
+    
+    // draw hor line segments between
+
+    // start from y1, decrement to y3
+    float ax = x3, bx = x3;
+    int tot_h = y1 - y3;
+    float g1 = (float)(x1-x3)/(y1-y3);
+    float g2 = (float)(x2-x1)/(y2-y1);
+    float g3 = (float)(x2-x3)/(y2-y3);
+    for (int y = 0; y < tot_h; y++) {
+        ax += g1;
+        if (y <= y2 - y3) bx += g3;
+        else bx += g2;
+        drawLine((int) ax,(int) bx, y + y3, y + y3, framebuffer, col);
+    }
+    drawLine(x1, x2, y1, y2, framebuffer, white);
+    drawLine(x2, x3, y2, y3, framebuffer, white);
+    drawLine(x3, x1, y3, y1, framebuffer, white);
+}
+
 int main(int argc, char** argv) {
 
     TGAImage framebuffer(width, height, TGAImage::RGB);
 
 
-    drawWireTriangle(21, 12, 3, 4, 19, 50, framebuffer,red);
+    drawTriangle(40, 12, 3, 4, 25, 50, framebuffer,red);
 
     framebuffer.write_tga_file("framebuffer.tga");
     return 0;
