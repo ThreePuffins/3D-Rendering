@@ -4,8 +4,8 @@
 #include "vec.h"
 #include "model.h"
 
-constexpr int width  = 4000;
-constexpr int height = 4000;
+constexpr int width  = 128;
+constexpr int height = 128;
 
 constexpr TGAColor white   = {255, 255, 255, 255}; // attention, BGRA order
 constexpr TGAColor green   = {  0, 255,   0, 255};
