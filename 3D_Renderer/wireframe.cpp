@@ -4,8 +4,8 @@
 #include "vec.h"
 #include "model.h"
 
-constexpr int width  = 512;
-constexpr int height = 512;
+constexpr int width  = 4000;
+constexpr int height = 4000;
 
 constexpr TGAColor white   = {255, 255, 255, 255}; // attention, BGRA order
 constexpr TGAColor green   = {  0, 255,   0, 255};
@@ -60,6 +60,11 @@ int main(int argc, char** argv) {
         drawLine(x1, x2, y1, y2, framebuffer, red);
         drawLine(x2, x3, y2, y3, framebuffer, red);
         drawLine(x3, x1, y3, y1, framebuffer, red);
+    }
+
+    for (int i = 0; i < model.numVerts(); i++) {
+        auto [x, y] = worldToCamera(model.vert(i));
+        framebuffer.set(x, y, white);
     }
 
     framebuffer.write_tga_file("framebuffer.tga");
