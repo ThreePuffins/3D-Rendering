@@ -1,7 +1,7 @@
 #include <cmath>
 #include "tgaimage.h"
 #include <iostream>
-#include "vec.h"
+#include "geometry.h"
 #include "model.h"
 
 constexpr int width  = 128;

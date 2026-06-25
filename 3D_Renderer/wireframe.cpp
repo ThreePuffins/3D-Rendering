@@ -1,7 +1,7 @@
 #include <cmath>
 #include "tgaimage.h"
 #include <iostream>
-#include "vec.h"
+#include "geometry.h"
 #include "model.h"
 
 constexpr int width  = 128;
@@ -38,13 +38,13 @@ void drawLine(int x0, int x1, int y0, int y1, TGAImage &framebuffer, TGAColor co
     }
 }
 
-std::tuple<float, float> worldToCamera(vec3 vec) {
+std::tuple<float, float> project(vec3 vec) {
     return {(vec.x + 1) * width / 2 , (vec.y + 1) * height / 2};
 }
 
 int main(int argc, char** argv) {
     if (argc != 2) {
-        std::cerr << "Usage: " << argv[0] << "path/to/.obj" << std::endl;
+        std::cerr << "Usage: " << argv[0] << " path/to/.obj" << std::endl;
         return 1;
     } 
 
@@ -53,9 +53,9 @@ int main(int argc, char** argv) {
     TGAImage framebuffer(width, height, TGAImage::RGB);
 
     for (int i = 0; i < model.numFaces(); i++) {
-        auto [x1, y1] = worldToCamera(model.vert(i, 0));
-        auto [x2, y2] = worldToCamera(model.vert(i, 1));
-        auto [x3, y3] = worldToCamera(model.vert(i, 2));
+        auto [x1, y1] = project(model.vert(i, 0));
+        auto [x2, y2] = project(model.vert(i, 1));
+        auto [x3, y3] = project(model.vert(i, 2));
         
         drawLine(x1, x2, y1, y2, framebuffer, blue);
         drawLine(x2, x3, y2, y3, framebuffer, blue);
@@ -63,7 +63,7 @@ int main(int argc, char** argv) {
     }
 
     for (int i = 0; i < model.numVerts(); i++) {
-        auto [x, y] = worldToCamera(model.vert(i));
+        auto [x, y] = project(model.vert(i));
         framebuffer.set(x, y, green);
     }
 
