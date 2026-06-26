@@ -6,6 +6,7 @@
 
 constexpr int width  = 4000;
 constexpr int height = 4000;
+constexpr vec3 camPos = {0,0,1};
 
 constexpr TGAColor white   = {255, 255, 255, 255}; // attention, BGRA order
 constexpr TGAColor green   = {  0, 255,   0, 255};
@@ -13,10 +14,15 @@ constexpr TGAColor red     = {  0,   0, 255, 255};
 constexpr TGAColor blue    = {255, 128,  64, 255};
 constexpr TGAColor yellow  = {  0, 200, 255, 255};
 
-vec3 rot(vec3 v) {
-    constexpr double a = M_PI/6;
-    matrix<3,3,double>Ry={{{std::cos(a),0,std::sin(a)},{0,1,0},{-std::sin(a),0,std::cos(a)}}};
-    return Ry*v;
+vec3 rot(vec3 v, double x, double y, double z) {
+    matrix<3,3,double>Rx={{{1,0,0},{0,std::cos(x),-std::sin(x)},{0,std::sin(x),std::cos(x)}}};
+    matrix<3,3,double>Ry={{{std::cos(y),0,std::sin(y)},{0,1,0},{-std::sin(y),0,std::cos(y)}}};
+    matrix<3,3,double>Rz={{{std::cos(z),-std::sin(z),0},{std::sin(z),std::cos(z),0},{0,0,1}}};
+    return Rz*(Ry*(Rx*v));
+}
+
+vec3 viewToClipSpace(vec3 v) {
+    return v / (1-v.z/camPos.z);
 }
 
 double signed_triangle_area(int x1, int y1, int x2, int y2, int x3, int y3) {
@@ -24,7 +30,7 @@ double signed_triangle_area(int x1, int y1, int x2, int y2, int x3, int y3) {
 }
 
 void drawTriangle(int x1, int y1, int z1, int x2, int y2, int z2, int x3, int y3, int z3, 
-    TGAImage &framebuffer, TGAColor col, TGAImage &depthbuffer) {
+    TGAImage &framebuffer, TGAColor col, std::vector<double> &zbuffer) {
     //find bounding box corners
     int box_xmax = std::max(x1, std::max(x2, x3));
     int box_xmin = std::min(x1, std::min(x2, x3));
@@ -34,15 +40,14 @@ void drawTriangle(int x1, int y1, int z1, int x2, int y2, int z2, int x3, int y3
     #pragma omp parallel for
     for (int x = box_xmin; x < box_xmax; x++) {
         for (int y = box_ymin; y < box_ymax; y++) {
-            float alpha = signed_triangle_area(x,y,x1,y1,x2,y2) / tot_area;
-            float beta = signed_triangle_area(x,y,x2,y2,x3,y3) / tot_area;
-            float gamma = signed_triangle_area(x,y,x3,y3,x1,y1) / tot_area;
+            float alpha = signed_triangle_area(x,y,x2,y2,x3,y3) / tot_area;
+            float beta = signed_triangle_area(x,y,x3,y3,x1,y1) / tot_area;
+            float gamma = signed_triangle_area(x,y,x1,y1,x2,y2) / tot_area;
             if (alpha < 0 || beta < 0 || gamma < 0) continue;
             unsigned char z = (alpha * z1 + beta * z2 + gamma * z3);
-            if (depthbuffer.get(x,y)[0] < z){
-                depthbuffer.set(x,y,{z});
-                framebuffer.set(x,y,col);
-            }
+            if (z <= zbuffer[x+y*framebuffer.width()]) continue;
+            zbuffer[x+y*framebuffer.width()] = z;
+            framebuffer.set(x,y,col);
         }
     }
 }
@@ -72,10 +77,14 @@ void drawLine(int x0, int y0, int x1, int y1, TGAImage &framebuffer, TGAColor co
     }
 }
 
-std::tuple<float, float, float> project(vec3 vec) {
+std::tuple<float, float, float> clipToScreenSpace(vec3 vec) {
     return {(vec.x + 1) * width / 2 , 
         (vec.y + 1) * height / 2, 
         (vec.z + 1) * 255 / 2};
+}
+
+std::tuple<float, float, float> viewToScreenSpace(vec3 vec) {
+    return clipToScreenSpace(viewToClipSpace(vec));
 }
 
 int main(int argc, char** argv) {
@@ -87,21 +96,28 @@ int main(int argc, char** argv) {
     Model model = Model(argv[1]);
     
     TGAImage framebuffer(width, height, TGAImage::RGB);
-    TGAImage depthbuffer(width, height, TGAImage::GRAYSCALE);
+    std::vector<double> zbuffer(width*height,-std::numeric_limits<double>::max());
 
     for (int i = 0; i < model.numFaces(); i++) {
-        auto [x1, y1, z1] = project(rot(model.vert(i, 0)));
-        auto [x2, y2, z2] = project(rot(model.vert(i, 1)));
-        auto [x3, y3, z3] = project(rot(model.vert(i, 2)));
+        auto [x1, y1, z1] = viewToScreenSpace(rot(model.vert(i, 0), 0, 0, 0));
+        auto [x2, y2, z2] = viewToScreenSpace(rot(model.vert(i, 1), 0, 0, 0));
+        auto [x3, y3, z3] = viewToScreenSpace(rot(model.vert(i, 2), 0, 0, 0));
 
         TGAColor rnd;
         for (int c=0; c<3; c++) rnd[c] = std::rand()%255;
 
-        drawTriangle(x1, y1, z1, x2, y2, z2, x3, y3, z3, framebuffer, rnd, depthbuffer);
+        drawTriangle(x1, y1, z1, x2, y2, z2, x3, y3, z3, framebuffer, rnd, zbuffer);
 
     }
 
-    framebuffer.write_tga_file("framebuffer.tga");
+    TGAImage depthbuffer(width, height, TGAImage::GRAYSCALE);
+
+    for (int x = 0; x < width; x++)
+        for (int y = 0; y < height; y++)
+            depthbuffer.set(x, y, {(unsigned char)zbuffer[x+width*y]});
+            
     depthbuffer.write_tga_file("depthbuffer.tga");
+    
+    framebuffer.write_tga_file("framebuffer.tga");
     return 0;
 }
