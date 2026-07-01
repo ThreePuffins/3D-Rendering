@@ -64,6 +64,8 @@ template<> struct vec<4, double> {
     double x = 0, y = 0, z = 0, w = 0;
     double& operator[](const int i)       { assert(i>=0 && i<4); return i<2 ? (i ? y : x) : (i==2 ? z : w);}
     double  operator[](const int i) const { assert(i>=0 && i<4); return i<2 ? (i ? y : x) : (i==2 ? z : w);}
+    vec<2, double> xy() const {return {x,y};}
+    vec<3, double> xyz() const {return {x,y,z};}
 };
 
 typedef vec<2, double> vec2;
@@ -78,10 +80,28 @@ template<int n, typename T> vec<n, T> normalised(const vec<n, T>& v) {
     return v / norm(v);
 }
 
+inline vec3 cross(const vec3& v1, const vec3& v2) {
+    return {v1.y*v2.z-v1.z*v2.y,v1.z*v2.x-v1.x*v2.z,v1.x*v2.y-v1.y*v2.x};
+}
+
+template<int n, typename T> struct dt; //used for recursive determinant calculation
+
 template<int nrows, int ncols, typename T> struct matrix {
     vec<ncols, T> rows[nrows] = {{}};
     vec<ncols, T>& operator[](const int i) { assert(i>=0 && i<nrows); return rows[i]; }
     const vec<ncols, T>&  operator[](const int i) const { assert(i>=0 && i<nrows); return rows[i]; }
+    T det() const {
+        dt.det
+    }
+
+    // https://www.cuemath.com/algebra/cofactor-matrix/
+    T cofactor(int row, int col) const {
+        matrix<nrows-1,ncols-1,T> sub;
+        for (i=0;i<nrows-1;i++)
+            for (j=0;j<nrows-1;j++) 
+                sub[i][j]=rows[i+int(i>row)][j+int(j>row)];
+        return sub.det() * (row+col%2==0?1:-1);
+    }
 };
 
 template<int nrows,int ncols, typename T> vec<nrows, T> operator*(const matrix<nrows,ncols, T>& m, const vec<ncols, T>& v) {
@@ -89,7 +109,6 @@ template<int nrows,int ncols, typename T> vec<nrows, T> operator*(const matrix<n
     for (int i=nrows; i--; ret[i]=m[i]*v);
     return ret;
 }
-
 
 template<int R1, int C1, int C2, typename T> matrix<R1, C2, T> 
     operator*(const matrix<R1, C1, T>& m1, const matrix<C1, C2, T>& m2) {
@@ -131,3 +150,18 @@ template<int nrows, int ncols, typename T> matrix<nrows, ncols, T> operator-(con
         for (int c = 0; c < ncols; c++) {ret[nrows][ncols] -= m2[nrows][ncols];}
     return ret;
 }
+
+template<int n, typename T>struct dt {
+    static double det(matrix<n,n, double>& src) {
+        T ret;
+        for (int i=0;i<n;i++)
+            ret+=src[0][i]*src.cofactor(0,i);
+        return ret;
+    }
+};
+
+template<> struct dt<1, double> {
+    static double det(matrix<1,1, double>& src) {
+        return src[0][0];
+    }
+};

@@ -14,26 +14,6 @@ constexpr TGAColor red     = {  0,   0, 255, 255};
 constexpr TGAColor blue    = {255, 128,  64, 255};
 constexpr TGAColor yellow  = {  0, 200, 255, 255};
 
-matrix<4,4, double> Perspective, Viewport, ModelView;
-
-void viewport(const int x, const int y, const int w, const int h) {
-    Viewport = {{{w/2., 0, 0, x+w/2.},{0, h/2., 0, y+h/2.},{0,0,1,0},{0,0,0,1}}};
-}
-
-void perspective(const double f) {
-    Perspective = {{{1,0,0,0},{0, 1, 0, 0},{0,0,1,0},{0,0,-1/f,1}}};
-}
-
-void lookat(const vec3 eye, const vec3 center, const vec3 up) {
-    //computes basis vectors for the model from the camera's view
-    vec3 n = normalised(eye-center);
-    vec3 l = normalised(cross(up,n));
-    vec3 m = normalised(cross(n,l));
-    //model view converts coordinates from origin O to origin C (the center)
-    ModelView = matrix<4,4,double>{{{l.x,l.y,l.z,0},{m.x,m.y,m.z,0},{n.x,n.y,n.z,0},{0,0,0,0}}} *
-                matrix<4,4,double>{{{1,0,0,-center.x},{0,1,0,-center.y},{0,0,1,-center.z},{0,0,0,1}}};
-}
-
 vec3 rot(vec3 v, double x, double y, double z) {
     matrix<3,3,double>Rx={{{1,0,0},{0,std::cos(x),-std::sin(x)},{0,std::sin(x),std::cos(x)}}};
     matrix<3,3,double>Ry={{{std::cos(y),0,std::sin(y)},{0,1,0},{-std::sin(y),0,std::cos(y)}}};
@@ -49,21 +29,22 @@ double signed_triangle_area(int x1, int y1, int x2, int y2, int x3, int y3) {
     return 0.5*((y2-y1)*(x2+x1) + (y3-y2)*(x3+x2) + (y1-y3)*(x1+x3));
 }
 
-void drawTriangle(const vec4 clip[3], TGAImage &framebuffer, TGAColor col, std::vector<double> &zbuffer) {
-    vec4 ndc[3] = {clip[0]/clip[0].w, clip[1]/clip[1].w, clip[2]/clip[2].w}; // normalised device coords
-    vec2 screen[3] = {(Viewport*ndc[0]).xy(),(Viewport*ndc[1]).xy(),(Viewport*ndc[2]).xy()}; // screen coords
-    // TODO: add backface culling
-    matrix<3,3,double> ABC = {{{screen[0].x,screen[0].y,1},{screen[1].x,screen[1].y,1},{screen[2].x,screen[2].y,1}}};
-    if (ABC.det()<1) return; //backface culling and discards triangles covering less than a pixel
+void drawTriangle(int x1, int y1, int z1, int x2, int y2, int z2, int x3, int y3, int z3, 
+    TGAImage &framebuffer, TGAColor col, std::vector<double> &zbuffer) {
     //find bounding box corners
-    auto [box_xmin,box_xmax] = std::minmax(screen[0].x,screen[1].x,screen[2].x);
-    auto [box_ymin,box_ymax] = std::minmax(screen[0].y,screen[1].y,screen[2].y);
+    int box_xmax = std::max(x1, std::max(x2, x3));
+    int box_xmin = std::min(x1, std::min(x2, x3));
+    int box_ymax = std::max(y1, std::max(y2, y3));
+    int box_ymin = std::min(y1, std::min(y2, y3));
+    double tot_area = signed_triangle_area(x1,y1,x2,y2,x3,y3);
     #pragma omp parallel for
     for (int x = box_xmin; x < box_xmax; x++) {
         for (int y = box_ymin; y < box_ymax; y++) {
-            vec3 bc
+            float alpha = signed_triangle_area(x,y,x2,y2,x3,y3) / tot_area;
+            float beta = signed_triangle_area(x,y,x3,y3,x1,y1) / tot_area;
+            float gamma = signed_triangle_area(x,y,x1,y1,x2,y2) / tot_area;
             if (alpha < 0 || beta < 0 || gamma < 0) continue;
-            unsigned char z = (alpha * ndc[0].z + beta * ndc[1].z + gamma * ndc[2].z);
+            unsigned char z = (alpha * z1 + beta * z2 + gamma * z3);
             if (z <= zbuffer[x+y*framebuffer.width()]) continue;
             zbuffer[x+y*framebuffer.width()] = z;
             framebuffer.set(x,y,col);
