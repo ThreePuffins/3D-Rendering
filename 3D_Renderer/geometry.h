@@ -91,16 +91,44 @@ template<int nrows, int ncols, typename T> struct matrix {
     vec<ncols, T>& operator[](const int i) { assert(i>=0 && i<nrows); return rows[i]; }
     const vec<ncols, T>&  operator[](const int i) const { assert(i>=0 && i<nrows); return rows[i]; }
     T det() const {
-        dt.det
+        assert(nrows==ncols);
+        return dt<nrows, T>::det(*this);
     }
 
     // https://www.cuemath.com/algebra/cofactor-matrix/
-    T cofactor(int row, int col) const {
+    T cofactor(const int row,const int col) const {
         matrix<nrows-1,ncols-1,T> sub;
-        for (i=0;i<nrows-1;i++)
-            for (j=0;j<nrows-1;j++) 
-                sub[i][j]=rows[i+int(i>row)][j+int(j>row)];
+        for (int i=0;i<nrows-1;i++)
+            for (int j=0;j<ncols-1;j++) 
+                sub[i][j]=rows[i+int(i>=row)][j+int(j>=col)];
         return sub.det() * (row+col%2==0?1:-1);
+    }
+
+    matrix<ncols, nrows, T> transpose() {
+        assert(nrows==ncols);
+        matrix<ncols, nrows, T> ret;
+        for (int i=0;i<nrows;i++)
+            for (int j=0;j<nrows;j++) 
+                ret[i][j] = rows[j][i];
+        return ret;
+    }
+
+    //https://www.mathsisfun.com/algebra/matrix-inverse-minors-cofactors-adjugate.html
+    //shows how to inverse, but the last step is to transpose so may as well define a function for all
+    //the previous work just in case it's necessary to use it
+    matrix<ncols,nrows, T> invertTransposed() {
+        assert(nrows==ncols);
+        matrix<ncols, nrows, T> adjugate;
+        for (int i=0;i<nrows;i++)
+            for (int j=0;j<ncols;j++) 
+                adjugate[i][j] = cofactor(i,j);
+        // adjugate[0]*rows[0] is the determinant bc its matrix of minors * the original top row
+        return adjugate/(adjugate[0]*rows[0]);
+    }
+
+    matrix<ncols,nrows, T> invert() {
+        assert(nrows==ncols);
+        return invertTransposed().transpose();
     }
 };
 
@@ -132,8 +160,7 @@ template<int nrows, int ncols, typename T> matrix<nrows, ncols, T> operator*(T v
 
 template<int nrows, int ncols, typename T> matrix<nrows, ncols, T> operator/(const matrix<nrows, ncols, T>& m1, T val) {
     matrix<nrows, ncols, T> ret = m1;
-    for (int r = 0; r < nrows; r++)
-        for (int c = 0; c < ncols; c++) {ret[nrows][ncols] /= val;}
+    for (int i = 0; i < nrows; i++) {ret[i] = m1[i]/val;}
     return ret;
 }
 
@@ -152,7 +179,7 @@ template<int nrows, int ncols, typename T> matrix<nrows, ncols, T> operator-(con
 }
 
 template<int n, typename T>struct dt {
-    static double det(matrix<n,n, double>& src) {
+    static double det(const matrix<n,n, double>& src) {
         T ret;
         for (int i=0;i<n;i++)
             ret+=src[0][i]*src.cofactor(0,i);
@@ -161,7 +188,7 @@ template<int n, typename T>struct dt {
 };
 
 template<> struct dt<1, double> {
-    static double det(matrix<1,1, double>& src) {
+    static double det(const matrix<1,1, double>& src) {
         return src[0][0];
     }
 };

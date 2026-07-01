@@ -4,8 +4,8 @@
 #include "geometry.h"
 #include "model.h"
 
-constexpr int width  = 4000;
-constexpr int height = 4000;
+constexpr int width  = 1000;
+constexpr int height = 1000;
 constexpr vec3 camPos = {0,0,1};
 
 constexpr TGAColor white   = {255, 255, 255, 255}; // attention, BGRA order

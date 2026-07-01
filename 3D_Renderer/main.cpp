@@ -4,9 +4,8 @@
 #include "geometry.h"
 #include "model.h"
 
-constexpr int width  = 4000;
-constexpr int height = 4000;
-constexpr vec3 camPos = {0,0,1};
+constexpr int width  = 1000;
+constexpr int height = 1000;
 
 constexpr TGAColor white   = {255, 255, 255, 255}; // attention, BGRA order
 constexpr TGAColor green   = {  0, 255,   0, 255};
@@ -42,7 +41,8 @@ vec3 rot(vec3 v, double x, double y, double z) {
 }
 
 vec3 viewToClipSpace(vec3 v) {
-    return v / (1-v.z/camPos.z);
+    const double t = 3;
+    return v / (1-v.z/t);
 }
 
 double signed_triangle_area(int x1, int y1, int x2, int y2, int x3, int y3) {
@@ -56,14 +56,15 @@ void drawTriangle(const vec4 clip[3], TGAImage &framebuffer, TGAColor col, std::
     matrix<3,3,double> ABC = {{{screen[0].x,screen[0].y,1},{screen[1].x,screen[1].y,1},{screen[2].x,screen[2].y,1}}};
     if (ABC.det()<1) return; //backface culling and discards triangles covering less than a pixel
     //find bounding box corners
-    auto [box_xmin,box_xmax] = std::minmax(screen[0].x,screen[1].x,screen[2].x);
-    auto [box_ymin,box_ymax] = std::minmax(screen[0].y,screen[1].y,screen[2].y);
+    auto [box_xmin,box_xmax] = std::minmax({screen[0].x,screen[1].x,screen[2].x});
+    auto [box_ymin,box_ymax] = std::minmax({screen[0].y,screen[1].y,screen[2].y});
     #pragma omp parallel for
-    for (int x = box_xmin; x < box_xmax; x++) {
-        for (int y = box_ymin; y < box_ymax; y++) {
-            vec3 bc
-            if (alpha < 0 || beta < 0 || gamma < 0) continue;
-            unsigned char z = (alpha * ndc[0].z + beta * ndc[1].z + gamma * ndc[2].z);
+    for (int x=std::max<int>(box_xmin,0); x<std::min<int>(box_xmax,framebuffer.width()-1); x++) {
+        for (int y=std::max<int>(box_ymin,0); y<std::min<int>(box_ymax,framebuffer.height()-1); y++) {
+            //https://haqr.eu/tinyrenderer/barycentric/ for barycentric coordinate calculation
+            vec3 bc = ABC.invertTransposed() * vec3{(double)x,(double)y,1.};
+            if (bc.x < 0 || bc.y < 0 || bc.z < 0) continue;
+            unsigned char z = (bc.x * ndc[0].z + bc.y * ndc[1].z + bc.z * ndc[2].z);
             if (z <= zbuffer[x+y*framebuffer.width()]) continue;
             zbuffer[x+y*framebuffer.width()] = z;
             framebuffer.set(x,y,col);
@@ -112,21 +113,27 @@ int main(int argc, char** argv) {
         return 1;
     } 
 
-    Model model = Model(argv[1]);
-    
+    vec3 eye {-1,0,2};
+    vec3 center {0,0,0};
+    vec3 up {0,1,0};
+    lookat(eye, center, up);
+    perspective(norm(eye-center));
+    viewport(width/16, height/16, width*7/8, height*7/8);
+
     TGAImage framebuffer(width, height, TGAImage::RGB);
     std::vector<double> zbuffer(width*height,-std::numeric_limits<double>::max());
 
+    Model model = Model(argv[1]);
     for (int i = 0; i < model.numFaces(); i++) {
-        auto [x1, y1, z1] = viewToScreenSpace(rot(model.vert(i, 0), 0, 0, 0));
-        auto [x2, y2, z2] = viewToScreenSpace(rot(model.vert(i, 1), 0, 0, 0));
-        auto [x3, y3, z3] = viewToScreenSpace(rot(model.vert(i, 2), 0, 0, 0));
+        vec4 clip[3];
+        for (int a : {0,1,2}) {
+            vec3 v = model.vert(i, a);
+            clip[a] = Perspective * ModelView * vec4{v.x,v.y,v.z,1.};
+        }
 
         TGAColor rnd;
         for (int c=0; c<3; c++) rnd[c] = std::rand()%255;
-
-        drawTriangle(x1, y1, z1, x2, y2, z2, x3, y3, z3, framebuffer, rnd, zbuffer);
-
+        drawTriangle(clip, framebuffer, rnd, zbuffer);
     }
 
     TGAImage depthbuffer(width, height, TGAImage::GRAYSCALE);
