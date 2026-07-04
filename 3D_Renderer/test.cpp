@@ -5,12 +5,13 @@ int main(int argc, char** argv) {
 
     vec3 a = {4,-2,1};
 
-    matrix<3,3, double> mat = {{{6,2,4},{-1,4,3},{-2,9,3}}};
+    matrix<2,2, double> mat = {{{4,7},{2,6}}};
 
-    vec3 r = mat * a;
+    matrix<2,2, double> m1 = mat.invert();    
 
-    for (int i=0;i<3;i++)
-            std::cerr << r[i] << std::endl;
+    for (int i=0;i<2;i++)
+        for (int j=0;j<2;j++)
+            std::cerr << m1[i][j] << std::endl;
 }
 
 // checked off geometry.h:

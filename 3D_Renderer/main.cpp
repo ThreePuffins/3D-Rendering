@@ -4,8 +4,8 @@
 #include "geometry.h"
 #include "model.h"
 
-constexpr int width  = 1000;
-constexpr int height = 1000;
+constexpr int width  = 200;
+constexpr int height = 200;
 
 constexpr TGAColor white   = {255, 255, 255, 255}; // attention, BGRA order
 constexpr TGAColor green   = {  0, 255,   0, 255};
@@ -43,7 +43,6 @@ vec3 rot(vec3 v, double x, double y, double z) {
 void drawTriangle(const vec4 clip[3], TGAImage &framebuffer, TGAColor col, std::vector<double> &zbuffer) {
     vec4 ndc[3] = {clip[0]/clip[0].w, clip[1]/clip[1].w, clip[2]/clip[2].w}; // normalised device coords
     vec2 screen[3] = {(Viewport*ndc[0]).xy(),(Viewport*ndc[1]).xy(),(Viewport*ndc[2]).xy()}; // screen coords
-    // TODO: add backface culling
     matrix<3,3,double> ABC = {{{screen[0].x,screen[0].y,1},{screen[1].x,screen[1].y,1},{screen[2].x,screen[2].y,1}}};
     if (ABC.det()<1) return; //backface culling and discards triangles covering less than a pixel
     //find bounding box corners

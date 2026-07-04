@@ -101,7 +101,7 @@ template<int nrows, int ncols, typename T> struct matrix {
         for (int i=0;i<nrows-1;i++)
             for (int j=0;j<ncols-1;j++) 
                 sub[i][j]=rows[i+int(i>=row)][j+int(j>=col)];
-        return sub.det() * (row+col%2==0?1:-1);
+        return sub.det() * ((row+col)%2 ? -1 : 1);
     }
 
     matrix<ncols, nrows, T> transpose() {
