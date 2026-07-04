@@ -37,9 +37,10 @@ void drawTriangle(int x1, int y1, int z1, int x2, int y2, int z2, int x3, int y3
     int box_ymax = std::max(y1, std::max(y2, y3));
     int box_ymin = std::min(y1, std::min(y2, y3));
     double tot_area = signed_triangle_area(x1,y1,x2,y2,x3,y3);
+    if (tot_area==0) return;
     #pragma omp parallel for
-    for (int x = box_xmin; x < box_xmax; x++) {
-        for (int y = box_ymin; y < box_ymax; y++) {
+    for (int x=std::max<int>(box_xmin,0); x<std::min<int>(box_xmax,framebuffer.width()-1); x++) {
+        for (int y=std::max<int>(box_ymin,0); y<std::min<int>(box_ymax,framebuffer.height()-1); y++) {
             float alpha = signed_triangle_area(x,y,x2,y2,x3,y3) / tot_area;
             float beta = signed_triangle_area(x,y,x3,y3,x1,y1) / tot_area;
             float gamma = signed_triangle_area(x,y,x1,y1,x2,y2) / tot_area;
@@ -99,9 +100,9 @@ int main(int argc, char** argv) {
     std::vector<double> zbuffer(width*height,-std::numeric_limits<double>::max());
 
     for (int i = 0; i < model.numFaces(); i++) {
-        auto [x1, y1, z1] = viewToScreenSpace(rot(model.vert(i, 0), 0, 0, 0));
-        auto [x2, y2, z2] = viewToScreenSpace(rot(model.vert(i, 1), 0, 0, 0));
-        auto [x3, y3, z3] = viewToScreenSpace(rot(model.vert(i, 2), 0, 0, 0));
+        auto [x1, y1, z1] = viewToScreenSpace(rot(model.vert(i, 0),0,M_PI/3,0) + vec3{0,0,-4});
+        auto [x2, y2, z2] = viewToScreenSpace(rot(model.vert(i, 1),0,M_PI/3,0) + vec3{0,0,-4});
+        auto [x3, y3, z3] = viewToScreenSpace(rot(model.vert(i, 2),0,M_PI/3,0) + vec3{0,0,-4});
 
         TGAColor rnd;
         for (int c=0; c<3; c++) rnd[c] = std::rand()%255;

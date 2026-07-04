@@ -134,8 +134,12 @@ template<int nrows, int ncols, typename T> struct matrix {
 
 template<int nrows,int ncols, typename T> vec<nrows, T> operator*(const matrix<nrows,ncols, T>& m, const vec<ncols, T>& v) {
     vec<nrows, T> ret;
-    for (int i=nrows; i--; ret[i]=m[i]*v);
+    for (int i=0; i<nrows; i++) ret[i]=m[i]*v;
     return ret;
+}
+
+template<int nrows,int ncols, typename T> vec<ncols, T> operator*(const vec<nrows, T>& v, const matrix<nrows,ncols, T>& m) {
+    return (matrix<1,nrows, T>{{v}}*m)[0];
 }
 
 template<int R1, int C1, int C2, typename T> matrix<R1, C2, T> 
@@ -143,7 +147,7 @@ template<int R1, int C1, int C2, typename T> matrix<R1, C2, T>
     matrix<R1, C2, T> ret;
     for (int r = 0; r < R1; r++)
         for (int c1 = 0; c1 < C1; c1++)
-            for (int c2 = 0; c2 < C2; c2++) {ret[r][c1] += m1[r][c2] * m2[c2][c1];}
+            for (int c2 = 0; c2 < C2; c2++) {ret[r][c2] += m1[r][c1] * m2[c1][c2];}
     return ret;
 }
 
