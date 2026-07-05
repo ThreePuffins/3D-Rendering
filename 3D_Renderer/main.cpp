@@ -4,8 +4,8 @@
 #include "geometry.h"
 #include "model.h"
 
-constexpr int width  = 1024;
-constexpr int height = 1024;
+constexpr int width  = 512;
+constexpr int height = 512;
 
 constexpr TGAColor white   = {255, 255, 255, 255}; // attention, BGRA order
 constexpr TGAColor green   = {  0, 255,   0, 255};
@@ -55,7 +55,7 @@ void drawTriangle(const vec4 clip[3], TGAImage &framebuffer, TGAColor col, std::
             //https://haqr.eu/tinyrenderer/barycentric/ for barycentric coordinate calculation
             vec3 bc = ABC.invertTransposed() * vec3{(double)x,(double)y,1.};
             if (bc.x < 0 || bc.y < 0 || bc.z < 0) continue;
-            unsigned char z = (bc.x * ndc[0].z + bc.y * ndc[1].z + bc.z * ndc[2].z);
+            double z = (bc.x * ndc[0].z + bc.y * ndc[1].z + bc.z * ndc[2].z);
             if (z <= zbuffer[x+y*framebuffer.width()]) continue;
             zbuffer[x+y*framebuffer.width()] = z;
             framebuffer.set(x,y,col);
@@ -69,7 +69,7 @@ int main(int argc, char** argv) {
         return 1;
     } 
 
-    vec3 eye {-1,0,2};
+    vec3 eye {0,0,2};
     vec3 center {0,0,0};
     vec3 up {0,1,0};
     lookat(eye, center, up);
@@ -77,6 +77,9 @@ int main(int argc, char** argv) {
     viewport(width/16, height/16, width*7/8, height*7/8);
 
     TGAImage framebuffer(width, height, TGAImage::RGB);
+    TGAImage depthbuffer(width, height, TGAImage::GRAYSCALE);
+
+
     std::vector<double> zbuffer(width*height,-std::numeric_limits<double>::max());
     vec4 clip[3];
     Model model = Model(argv[1]);
@@ -92,12 +95,10 @@ int main(int argc, char** argv) {
         drawTriangle(clip, framebuffer, rnd, zbuffer);
     }
 
-    TGAImage depthbuffer(width, height, TGAImage::GRAYSCALE);
     for (int x = 0; x < width; x++)
         for (int y = 0; y < height; y++)
-            depthbuffer.set(x, y, {(unsigned char)zbuffer[x+width*y]});
-
-    
+                depthbuffer.set(x, y, {(unsigned char)(std::min(255*zbuffer[x+width*y],255.))});
+            
     depthbuffer.write_tga_file("depthbuffer.tga");
     
     framebuffer.write_tga_file("framebuffer.tga");
