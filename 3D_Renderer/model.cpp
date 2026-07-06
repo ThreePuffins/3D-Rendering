@@ -19,10 +19,11 @@ Model::Model(const std::string filename) {
         }
         else if (!line.compare(0, 2, "f ")) {
             std::string str;
-            int f, cnt = 0;
+            int f,t,n,cnt = 0;
             iss >> trash;
-            while (iss >> str) {
-                facet_vrt.push_back(stoi(str.substr(0, str.find("/"))) - 1);
+            while (iss >> f >> trash >> t >> trash >> n) {
+                facet_vrt.push_back(--f);
+                facet_nrm.push_back(--n);
                 cnt++;
             }
             if (3 != cnt) {
@@ -30,8 +31,16 @@ Model::Model(const std::string filename) {
                 return;
             } 
         }
+        else if (!line.compare(0, 3, "vn ")) {
+            iss >> trash >> trash;
+            vec3 vn;
+            for (int i = 0; i < 3; i++) iss >> vn[i];
+            vert_norms.push_back(normalised(vn));
+        }
     }
-    std::cerr << "# v# " << numVerts() << " f# "  << numFaces() << std::endl;
+    std::cerr << "# v# " << numVerts() 
+              << "# vn# " << numVertNormals()
+              << " f# "  << numFaces() << std::endl;
 }
 
 int Model::numVerts() const {
@@ -42,10 +51,18 @@ int Model::numFaces() const {
     return facet_vrt.size() / 3;
 }
 
+int Model::numVertNormals() const {
+    return verts.size();
+}
+
 vec3 Model::vert(const int i) const {
     return verts[i];
 }
 
 vec3 Model::vert(const int iface, const int ivert) const {
     return verts[facet_vrt[iface * 3 + ivert]];
+}
+
+vec3 Model::vertNormal(const int iface, const int ivert) const {
+    return vert_norms[facet_vrt[iface * 3 + ivert]];
 }
