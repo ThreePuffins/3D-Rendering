@@ -11,7 +11,7 @@ struct RandomShader : IShader {
     RandomShader(const Model &m) : model(m) {}
 
     virtual vec4 vertex(const int face, const int vert) {
-        vec3 v = model.vert(face, vert);
+        vec4 v = model.vert(face, vert);
         vec4 cam_pos = ModelView * vec4{v.x,v.y,v.z,1.};
         tri[vert] = cam_pos.xyz();
         return Perspective * cam_pos;
@@ -27,30 +27,67 @@ struct RandomShader : IShader {
 
 struct PhongShader : IShader {
     const Model &model;
-    vec3 tri[3];
-    vec3 vn[3];
-    vec3 l;
+    vec4 tri[3];
+    vec4 vn[3];
+    vec4 l;
 
     PhongShader(const Model &m, const vec3 light) : model(m) {
         //TODO: make it a point light cuz that'd be cool 
         //directional light i think
-        l = normalised((ModelView * vec4{light.x,light.y,light.z,1.}).xyz()); 
+        l = normalised((ModelView * vec4{light.x,light.y,light.z,1.})); 
     }
 
     virtual vec4 vertex(const int face, const int vert) {
-        vec3 v = model.vert(face, vert);
+        vec4 v = model.vert(face, vert);
         vec4 cam_pos = ModelView * vec4{v.x,v.y,v.z,1.};
-        tri[vert] = cam_pos.xyz();
-        vec3 n = model.vertNormal(face, vert);
-        vn[vert] = (ModelView.invertTransposed() * vec4{n.x, n.y, n.z, 0.}).xyz();
+        tri[vert] = cam_pos;
+        vec4 n = model.vertNormal(face, vert);
+        // cant just apply modelview transformation to normals, have to transform it with invert transposed modelview instead
+        vn[vert] = ModelView.invertTransposed() * vec4{n.x, n.y, n.z, 0.};
         return Perspective * cam_pos;
     }
 
     virtual std::pair<bool,TGAColor> fragment(const vec3 bar) const {
-        vec3 n = normalised(bar.x * vn[0] + bar.y * vn[1] + bar.z * vn[2]);
-        vec3 r = 2.*n*(n*l)-l; // wrote a lil proof for this irl :)
+        vec4 n = normalised(bar.x * vn[0] + bar.y * vn[1] + bar.z * vn[2]);
+        vec4 r = 2.*n*(n*l)-l; // wrote a lil proof for this irl :)
 
         TGAColor frag_col = {150,100,244};
+        double ambient = .3;
+        double diffuse = std::max(n * l,0.); // dot product is more efficient than cos
+        // bc modelview makes the z axis parallel to the camera-eye vector, the dot product of the reflection and said vector is just the z component of r
+        double specular = std::pow(std::max(r.z,0.),30);
+        for (int c : {0,1,2}) {
+            frag_col[c] *= std::min(1.,ambient + 0.4*diffuse + specular);
+        }
+        return {false, frag_col};
+    }
+};
+
+struct PhongShader_nm : IShader {
+    const Model &model;
+    vec4 l;
+    vec2 vert_uv[3];
+
+    PhongShader_nm(const Model &m, const vec3 light) : model(m) {
+        //TODO: make it a point light cuz that'd be cool 
+        //directional light i think
+        l = normalised((ModelView * vec4{light.x,light.y,light.z,1.})); 
+    }
+
+    virtual vec4 vertex(const int face, const int vert) {
+        vert_uv[vert] = model.uv(face,vert);
+        vec4 v = model.vert(face,vert);
+        vec4 cam_pos = ModelView * vec4{v.x,v.y,v.z,1.};
+        vec4 n = model.vertNormal(face, vert);
+        return Perspective * cam_pos;
+    }
+
+    virtual std::pair<bool,TGAColor> fragment(const vec3 bar) const {
+        vec2 uv = bar.x * vert_uv[0] + bar.y * vert_uv[1] + bar.z * vert_uv[2];
+        vec4 n = normalised(ModelView.invertTransposed() * model.normal(uv));
+        vec4 r = 2.*n*(n*l)-l; // wrote a lil proof for this irl :)
+
+        TGAColor frag_col = {255,255,255};
         double ambient = .3;
         double diffuse = std::max(n * l,0.); // dot product is more efficient than cos
         // bc modelview makes the z axis parallel to the camera-eye vector, the dot product of the reflection and said vector is just the z component of r
@@ -83,7 +120,7 @@ int main(int argc, char** argv) {
 
     for (int a = 1; a < argc; a++) {
         Model model = Model(argv[a]);
-        PhongShader shader(model, light);
+        PhongShader_nm shader(model, light);
         for (int i = 0; i < model.numFaces(); i++) {
             Triangle clip = { shader.vertex(i, 0),
                               shader.vertex(i, 1),
@@ -92,11 +129,11 @@ int main(int argc, char** argv) {
         }
     }
 
-    TGAImage depthbuffer(width, height, TGAImage::GRAYSCALE);
-    for (int x = 0; x < width; x++)
-        for (int y = 0; y < height; y++)
-                depthbuffer.set(x, y, {(unsigned char)(std::min(255*zbuffer[x+width*y],255.))});
-    depthbuffer.write_tga_file("depthbuffer.tga");
+    // TGAImage depthbuffer(width, height, TGAImage::GRAYSCALE);
+    // for (int x = 0; x < width; x++)
+    //     for (int y = 0; y < height; y++)
+    //             depthbuffer.set(x, y, {(unsigned char)(std::min(255*zbuffer[x+width*y],255.))});
+    // depthbuffer.write_tga_file("depthbuffer.tga");
     
     framebuffer.write_tga_file("framebuffer.tga");
     return 0;
