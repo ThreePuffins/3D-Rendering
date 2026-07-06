@@ -54,11 +54,13 @@ Model::Model(const std::string filename) {
         size_t dot = filename.find_last_of(".");
         if (dot==std::string::npos) return; //if . is final char
         std::string texfile = filename.substr(0,dot) + suffix;
+        //loads the tga file into img
         std::cerr << "texture file " << texfile << " loading " 
             << (img.read_tga_file(texfile.c_str()) ? "success" : "failed") << std::endl;
     };
     load_texture("_nm.tga", normal_map);
-
+    load_texture("_diffuse.tga", diffuse_map);
+    load_texture("_spec.tga", specular_map);
 }
 
 int Model::numVerts() const {
@@ -90,6 +92,14 @@ vec4 Model::normal(const vec2 &uv) const {
     TGAColor c = normal_map.get(uv[0] * normal_map.width(),uv[1] * normal_map.height());
     // tga uses bgra so reverses the channels, also maps the domains from [0,255] to [-1,1]
     return vec4{(double)c[2],(double)c[1],(double)c[0],0}*2./255. - vec4{1,1,1,0}; 
+}
+
+const TGAImage& Model::diffuse() const {
+    return diffuse_map;
+}
+
+const TGAImage& Model::specular() const {
+    return specular_map;
 }
 
 vec2 Model::uv(const int iface, const int ivert) const {

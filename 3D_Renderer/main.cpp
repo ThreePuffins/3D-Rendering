@@ -87,13 +87,13 @@ struct PhongShader_nm : IShader {
         vec4 n = normalised(ModelView.invertTransposed() * model.normal(uv));
         vec4 r = 2.*n*(n*l)-l; // wrote a lil proof for this irl :)
 
-        TGAColor frag_col = {255,255,255};
+        TGAColor frag_col = sample_uv(model.diffuse(),uv);
         double ambient = .3;
-        double diffuse = std::max(n * l,0.); // dot product is more efficient than cos
+        double diffuse = .9*std::max(n * l,0.); // dot product is more efficient than cos
         // bc modelview makes the z axis parallel to the camera-eye vector, the dot product of the reflection and said vector is just the z component of r
-        double specular = std::pow(std::max(r.z,0.),30);
+        double specular= 2. * std::pow(std::max(r.z,0.),30);
         for (int c : {0,1,2}) {
-            frag_col[c] *= std::min(1.,ambient + 0.4*diffuse + specular);
+            frag_col[c] = std::min<int>(255,frag_col[c]*(ambient + diffuse + (sample_uv(model.specular(),uv)[c]/255.)));
         }
         return {false, frag_col};
     }
