@@ -12,6 +12,7 @@ class Model {
     TGAImage normal_map = {};
     TGAImage specular_map = {};
     TGAImage diffuse_map = {};
+    TGAImage glow_map = {};
 public:
     Model(const std::string filename);
     int numVerts() const;
@@ -23,5 +24,6 @@ public:
     vec4 normal(const vec2 &uv) const;
     const TGAImage& diffuse() const;
     const TGAImage& specular() const;
+    const TGAImage& glow() const;
     vec2 uv(const int iface, const int ivert) const;
 };

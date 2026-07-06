@@ -93,7 +93,8 @@ struct PhongShader_nm : IShader {
         // bc modelview makes the z axis parallel to the camera-eye vector, the dot product of the reflection and said vector is just the z component of r
         double specular= 2. * std::pow(std::max(r.z,0.),30);
         for (int c : {0,1,2}) {
-            frag_col[c] = std::min<int>(255,frag_col[c]*(ambient + diffuse + (sample_uv(model.specular(),uv)[c]/255.)));
+            frag_col[c] = std::min<int>(255,frag_col[c]*(sample_uv(model.glow(),uv)[c]/255. 
+                + ambient + diffuse + specular * (sample_uv(model.specular(),uv)[c]/255.)));
         }
         return {false, frag_col};
     }
