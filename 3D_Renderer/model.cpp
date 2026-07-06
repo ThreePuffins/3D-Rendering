@@ -58,7 +58,7 @@ Model::Model(const std::string filename) {
         std::cerr << "texture file " << texfile << " loading " 
             << (img.read_tga_file(texfile.c_str()) ? "success" : "failed") << std::endl;
     };
-    load_texture("_nm.tga", normal_map);
+    load_texture("_nm_tangent.tga", normal_map);
     load_texture("_diffuse.tga", diffuse_map);
     load_texture("_spec.tga", specular_map);
     load_texture("_glow.tga", glow_map);
@@ -106,7 +106,6 @@ const TGAImage& Model::specular() const {
 const TGAImage& Model::glow() const {
     return glow_map;
 }
-
 
 vec2 Model::uv(const int iface, const int ivert) const {
     return tex[facet_tex[iface*3+ivert]];

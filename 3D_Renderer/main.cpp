@@ -67,6 +67,8 @@ struct PhongShader_nm : IShader {
     const Model &model;
     vec4 l;
     vec2 vert_uv[3];
+    vec4 tri[3];
+    vec4 vn[3];
 
     PhongShader_nm(const Model &m, const vec3 light) : model(m) {
         //TODO: make it a point light cuz that'd be cool 
@@ -76,15 +78,22 @@ struct PhongShader_nm : IShader {
 
     virtual vec4 vertex(const int face, const int vert) {
         vert_uv[vert] = model.uv(face,vert);
-        vec4 v = model.vert(face,vert);
-        vec4 cam_pos = ModelView * vec4{v.x,v.y,v.z,1.};
+        vec4 cam_pos = ModelView * model.vert(face,vert);
+        tri[vert] = cam_pos;
+        vn[vert] = ModelView.invertTransposed() * model.vertNormal(face,vert);
         vec4 n = model.vertNormal(face, vert);
         return Perspective * cam_pos;
     }
 
     virtual std::pair<bool,TGAColor> fragment(const vec3 bar) const {
         vec2 uv = bar.x * vert_uv[0] + bar.y * vert_uv[1] + bar.z * vert_uv[2];
-        vec4 n = normalised(ModelView.invertTransposed() * model.normal(uv));
+        matrix<2,4,double> E = {tri[0]-tri[1],tri[1]-tri[2]};
+        matrix<2,2,double> U = {vert_uv[0]-vert_uv[1],vert_uv[1]-vert_uv[2]};
+        matrix<2,4,double> T = {U.invert() * E}; //both tangent and bitangent vectors, mapping globalspace to uv vectors
+        matrix<4,4,double> tangent_space_basis = {T[0],T[1],
+            normalised(bar.x * vn[0] + bar.y * vn[1] + bar.z * vn[2]), {0,0,0,1}};
+        // created the tangent_space_basis transposed to begin with, so must detranspose it now
+        vec4 n = normalised(tangent_space_basis.transpose() * model.normal(uv));
         vec4 r = 2.*n*(n*l)-l; // wrote a lil proof for this irl :)
 
         TGAColor frag_col = sample_uv(model.diffuse(),uv);
