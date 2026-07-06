@@ -6,7 +6,6 @@ extern std::vector<double> zbuffer;
 
 struct RandomShader : IShader {
     const Model &model;
-    TGAColor color = {};
     vec3 tri[3];
 
     RandomShader(const Model &m) : model(m) {}
@@ -19,7 +18,44 @@ struct RandomShader : IShader {
     }
 
     virtual std::pair<bool,TGAColor> fragment(const vec3 bar) const {
+        TGAColor color = { (unsigned char)(std::rand()%255), 
+                  (unsigned char)(std::rand()%255), 
+                  (unsigned char)(std::rand()%255) };
         return {false, color};
+    }
+};
+
+struct PhongShader : IShader {
+    const Model &model;
+    vec3 tri[3];
+    vec3 l;
+
+    PhongShader(const Model &m, const vec3 light) : model(m) {
+        //TODO: make it a point light cuz that'd be cool 
+        //directional light i think
+        l = normalised((ModelView * vec4{light.x,light.y,light.z,1.}).xyz()); 
+    }
+
+    virtual vec4 vertex(const int face, const int vert) {
+        vec3 v = model.vert(face, vert);
+        vec4 cam_pos = ModelView * vec4{v.x,v.y,v.z,1.};
+        tri[vert] = cam_pos.xyz();
+        return Perspective * cam_pos;
+    }
+
+    virtual std::pair<bool,TGAColor> fragment(const vec3 bar) const {
+        vec3 n = normalised(cross(tri[0]-tri[1],tri[1]-tri[2]));
+        vec3 r = 2.*n*(n*l)-l; // wrote a lil proof for this irl :)
+
+        TGAColor frag_col = {150,100,244};
+        double ambient = .25;
+        double diffuse = std::max(n * l,0.); // dot product is more efficient than cos
+        // bc modelview makes the z axis parallel to the camera-eye vector, the dot product of the reflection and said vector is just the z component of r
+        double specular = std::pow(std::max(r.z,0.),32);
+        for (int c : {0,1,2}) {
+            frag_col[c] *= std::min(1.,ambient + 0.4*diffuse + specular);
+        }
+        return {false, frag_col};
     }
 };
 
@@ -34,6 +70,7 @@ int main(int argc, char** argv) {
     vec3 eye {0,0,2};
     vec3 center {0,0,0};
     vec3 up {0,1,0};
+    vec3 light {2,2,2};
 
     lookat(eye, center, up);
     init_perspective(norm(eye-center));
@@ -43,11 +80,8 @@ int main(int argc, char** argv) {
 
     for (int a = 1; a < argc; a++) {
         Model model = Model(argv[a]);
-        RandomShader shader(model);
+        PhongShader shader(model, light);
         for (int i = 0; i < model.numFaces(); i++) {
-            shader.color = { (unsigned char)(std::rand()%255), 
-                             (unsigned char)(std::rand()%255), 
-                             (unsigned char)(std::rand()%255) };
             Triangle clip = { shader.vertex(i, 0),
                               shader.vertex(i, 1),
                               shader.vertex(i, 2) };
