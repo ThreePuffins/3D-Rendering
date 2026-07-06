@@ -100,10 +100,12 @@ struct PhongShader_nm : IShader {
         double ambient = .3;
         double diffuse = .9*std::max(n * l,0.); // dot product is more efficient than cos
         // bc modelview makes the z axis parallel to the camera-eye vector, the dot product of the reflection and said vector is just the z component of r
-        double specular= 2. * std::pow(std::max(r.z,0.),30);
+        double specular= 3. * std::pow(std::max(r.z,0.),30);
+        TGAColor glow_uv = sample_uv(model.glow(),uv);
+        TGAColor specular_uv = sample_uv(model.specular(),uv);
         for (int c : {0,1,2}) {
-            frag_col[c] = std::min<int>(255,frag_col[c]*(sample_uv(model.glow(),uv)[c]/255. 
-                + ambient + diffuse + specular * (sample_uv(model.specular(),uv)[c]/255.)));
+            frag_col[c] = std::min<int>(255,frag_col[c]*(3.*glow_uv[c]/255.
+                + ambient + diffuse + specular * (specular_uv[c]/255.)));
         }
         return {false, frag_col};
     }
@@ -120,7 +122,7 @@ int main(int argc, char** argv) {
     vec3 eye {0,0,2};
     vec3 center {0,0,0};
     vec3 up {0,1,0};
-    vec3 light {2,2,2};
+    vec3 sun {2,2,2};
 
     lookat(eye, center, up);
     init_perspective(norm(eye-center));
@@ -130,7 +132,7 @@ int main(int argc, char** argv) {
 
     for (int a = 1; a < argc; a++) {
         Model model = Model(argv[a]);
-        PhongShader_nm shader(model, light);
+        PhongShader_nm shader(model, sun);
         for (int i = 0; i < model.numFaces(); i++) {
             Triangle clip = { shader.vertex(i, 0),
                               shader.vertex(i, 1),
