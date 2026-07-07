@@ -1,7 +1,7 @@
 #include "bad_gl.h"
 #include "model.h"
 
-extern matrix<4,4,double> ModelView, Perspective;
+extern matrix<4,4,double> ModelView, Perspective, Viewport;
 extern std::vector<double> zbuffer;   
 
 struct RandomShader : IShader {
@@ -69,8 +69,14 @@ struct PhongShader_nm : IShader {
     vec2 vert_uv[3];
     vec4 tri[3];
     vec4 vn[3];
+    int shadow_w;
+    int shadow_h;
+    std::vector<double> shadow_mask;
+    matrix<4,4,double> light_transform;
 
-    PhongShader_nm(const Model &m, const vec3 light) : model(m) {
+    PhongShader_nm(const Model &m, const vec3 light, const std::vector<double> &s_mask, 
+        const int s_w, const int s_h, const matrix<4,4,double> &l_transform) : model(m), 
+        shadow_mask(s_mask), shadow_w(s_w), shadow_h(s_h), light_transform(l_transform) {
         //TODO: make it a point light cuz that'd be cool 
         //directional light i think
         l = normalised((ModelView * vec4{light.x,light.y,light.z,1.})); 
@@ -86,6 +92,12 @@ struct PhongShader_nm : IShader {
     }
 
     virtual std::pair<bool,TGAColor> fragment(const vec3 bar) const {
+        vec4 frag = ModelView.invert() * (bar.x * tri[0] + bar.y * tri[1] + bar.z * tri[2]); // world coords
+        vec4 q = light_transform * frag;
+        vec3 p = q.xyz()/q.w;
+        bool lit = (p.x<0 || p.x>=shadow_w || p.y<0 || p.y>=shadow_h) || // outside of shadow buffer
+            (p.z > shadow_mask[int(p.x) + int(p.y)*shadow_w] - .03); // add small bias for z-fighting
+
         vec2 uv = bar.x * vert_uv[0] + bar.y * vert_uv[1] + bar.z * vert_uv[2];
         matrix<2,4,double> E = {tri[0]-tri[1],tri[1]-tri[2]};
         matrix<2,2,double> U = {vert_uv[0]-vert_uv[1],vert_uv[1]-vert_uv[2]};
@@ -98,16 +110,36 @@ struct PhongShader_nm : IShader {
 
         TGAColor frag_col = sample_uv(model.diffuse(),uv);
         double ambient = .3;
-        double diffuse = .9*std::max(n * l,0.); // dot product is more efficient than cos
-        // bc modelview makes the z axis parallel to the camera-eye vector, the dot product of the reflection and said vector is just the z component of r
-        double specular= 3. * std::pow(std::max(r.z,0.),30);
         TGAColor glow_uv = sample_uv(model.glow(),uv);
-        TGAColor specular_uv = sample_uv(model.specular(),uv);
-        for (int c : {0,1,2}) {
-            frag_col[c] = std::min<int>(255,frag_col[c]*(3.*glow_uv[c]/255.
-                + ambient + diffuse + specular * (specular_uv[c]/255.)));
+        if (lit) {
+            double diffuse = .9*std::max(n * l,0.); // dot product is more efficient than cos
+            // bc modelview makes the z axis parallel to the camera-eye vector, the dot product of the reflection and said vector is just the z component of r
+            double specular= 3. * std::pow(std::max(r.z,0.),30);
+            TGAColor specular_uv = sample_uv(model.specular(),uv);
+            for (int c : {0,1,2}) {
+                frag_col[c] = std::min<int>(255,frag_col[c]*(3.*glow_uv[c]/255.
+                    + ambient + diffuse + specular * (specular_uv[c]/255.)));
+            }
+        }
+        else {
+            for (int c : {0,1,2}) {
+                frag_col[c] = std::min<int>(255,frag_col[c]*(3.*glow_uv[c]/255. + ambient));
+            }
         }
         return {false, frag_col};
+    }
+};
+
+struct BlankShader : IShader {
+    const Model &model;
+    BlankShader(const Model &m) : model(m) {}
+
+    virtual vec4 vertex(const int face, const int vert) {
+        return Perspective * ModelView * model.vert(face, vert);
+    }
+
+    virtual std::pair<bool,TGAColor> fragment(const vec3 bar) const {
+        return {false, {255,255,255}};
     }
 };
 
@@ -119,10 +151,35 @@ int main(int argc, char** argv) {
 
     int width = 1000;
     int height = 1000;
+    int s_width = 1000;
+    int s_height = 1000;
     vec3 eye {0,0,2};
     vec3 center {0,0,0};
     vec3 up {0,1,0};
-    vec3 sun {2,2,2};
+    vec3 sun {100,100,100};
+
+    //shadow rendering pass
+    lookat(sun, center, up);
+    init_perspective(norm(sun-center));
+    init_viewport(s_width/16, s_height/16, s_width*7/8, s_height*7/8);
+    init_zbuffer(s_width,s_height);
+    TGAImage trash(s_width, s_height, TGAImage::GRAYSCALE);
+
+    for (int a = 1; a < argc; a++) {
+        Model model = Model(argv[a]);
+        BlankShader shader(model);
+        for (int i = 0; i < model.numFaces(); i++) {
+            Triangle clip = { shader.vertex(i, 0),
+                              shader.vertex(i, 1),
+                              shader.vertex(i, 2) };
+            rasterize(clip, trash, shader);
+        }
+    }
+
+    std::cerr << "here" << std::endl;
+
+    std::vector<double> shadow_zbuffer = zbuffer;
+    matrix<4,4,double> N = Viewport * Perspective * ModelView;
 
     lookat(eye, center, up);
     init_perspective(norm(eye-center));
@@ -132,7 +189,7 @@ int main(int argc, char** argv) {
 
     for (int a = 1; a < argc; a++) {
         Model model = Model(argv[a]);
-        PhongShader_nm shader(model, sun);
+        PhongShader_nm shader(model, sun, shadow_zbuffer, s_width, s_height, N);
         for (int i = 0; i < model.numFaces(); i++) {
             Triangle clip = { shader.vertex(i, 0),
                               shader.vertex(i, 1),
@@ -140,6 +197,7 @@ int main(int argc, char** argv) {
             rasterize(clip, framebuffer, shader);
         }
     }
+
 
     // TGAImage depthbuffer(width, height, TGAImage::GRAYSCALE);
     // for (int x = 0; x < width; x++)
