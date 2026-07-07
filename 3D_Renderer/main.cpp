@@ -86,35 +86,22 @@ struct PhongShader_nm : IShader {
 
     virtual vec4 vertex(const int face, const int vert) {
         vert_uv[vert] = model.uv(face,vert);
-        vec4 cam_pos = ModelView * model.vert(face,vert);
-        tri[vert] = cam_pos;
+        tri[vert] = ModelView * model.vert(face,vert);
         vn[vert] = ModelView.invertTransposed() * model.vertNormal(face,vert);
 
         screen_space[vert] = Viewport * Perspective * ModelView * model.vert(face,vert);
 
-        return Perspective * cam_pos;
+        return Perspective * tri[vert];
     }
 
     virtual std::pair<bool,TGAColor> fragment(const vec3 bar) const {
-        //vec4 frag = ModelView.invert() * (bar.x * tri[0] + bar.y * tri[1] + bar.z * tri[2]); // world coords
+        // TODO: (maybe) try and figure out why the below commented code didn't work
+        // vec4 frag = ModelView.invert() * (bar[0] * tri[0] + bar[1] * tri[1] + bar[2] * tri[2]); // world coords
         vec4 frag = (Viewport* Perspective * ModelView).invert() * (bar.x * screen_space[0] + bar.y * screen_space[1] + bar.z * screen_space[2]); // world coords
         vec4 q = light_transform * frag;
         vec3 p = q.xyz()/q.w;
         bool lit = (p.x<0 || p.x>=shadow_w || p.y<0 || p.y>=shadow_h) || // outside of shadow buffer
             (p.z > shadow_mask[int(p.x) + int(p.y)*shadow_w] - .03); // add small bias for z-fighting
-        
-        if (!lit) {
-            double x = (Viewport * Perspective * (bar.x * tri[0] + bar.y * tri[1] + bar.z * tri[2])).x;
-            double y = (Viewport * Perspective * (bar.x * tri[0] + bar.y * tri[1] + bar.z * tri[2])).y;
-            if (x < 540 && x > 520 && y < 820 && y > 800) {
-                std::cerr << "x: " << x << std::endl;
-                std::cerr << "y: " << y << std::endl;
-                std::cerr << "p.x: " << p.x << std::endl;
-                std::cerr << "p.y: " << p.y << std::endl;
-                std::cerr << "p.z: " << p.z << std::endl;
-                std::cerr << "light map: " << shadow_mask[int(p.x) + int(p.y)*shadow_w] - .03 << std::endl;
-            }
-        }
 
         vec2 uv = bar.x * vert_uv[0] + bar.y * vert_uv[1] + bar.z * vert_uv[2];
         matrix<2,4,double> E = {tri[0]-tri[1],tri[1]-tri[2]};
@@ -174,7 +161,7 @@ int main(int argc, char** argv) {
     vec3 eye {0,0,2};
     vec3 center {0,0,0};
     vec3 up {0,1,0};
-    vec3 sun {4,4,8};
+    vec3 sun {-4,40,-2};
 
     //shadow rendering pass
     lookat(sun, center, up);
