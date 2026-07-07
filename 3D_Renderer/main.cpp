@@ -74,6 +74,8 @@ struct PhongShader_nm : IShader {
     std::vector<double> shadow_mask;
     matrix<4,4,double> light_transform;
 
+    vec4 screen_space[3];
+
     PhongShader_nm(const Model &m, const vec3 light, const std::vector<double> &s_mask, 
         const int s_w, const int s_h, const matrix<4,4,double> &l_transform) : model(m), 
         shadow_mask(s_mask), shadow_w(s_w), shadow_h(s_h), light_transform(l_transform) {
@@ -87,16 +89,32 @@ struct PhongShader_nm : IShader {
         vec4 cam_pos = ModelView * model.vert(face,vert);
         tri[vert] = cam_pos;
         vn[vert] = ModelView.invertTransposed() * model.vertNormal(face,vert);
-        vec4 n = model.vertNormal(face, vert);
+
+        screen_space[vert] = Viewport * Perspective * ModelView * model.vert(face,vert);
+
         return Perspective * cam_pos;
     }
 
     virtual std::pair<bool,TGAColor> fragment(const vec3 bar) const {
-        vec4 frag = ModelView.invert() * (bar.x * tri[0] + bar.y * tri[1] + bar.z * tri[2]); // world coords
+        //vec4 frag = ModelView.invert() * (bar.x * tri[0] + bar.y * tri[1] + bar.z * tri[2]); // world coords
+        vec4 frag = (Viewport* Perspective * ModelView).invert() * (bar.x * screen_space[0] + bar.y * screen_space[1] + bar.z * screen_space[2]); // world coords
         vec4 q = light_transform * frag;
         vec3 p = q.xyz()/q.w;
         bool lit = (p.x<0 || p.x>=shadow_w || p.y<0 || p.y>=shadow_h) || // outside of shadow buffer
             (p.z > shadow_mask[int(p.x) + int(p.y)*shadow_w] - .03); // add small bias for z-fighting
+        
+        if (!lit) {
+            double x = (Viewport * Perspective * (bar.x * tri[0] + bar.y * tri[1] + bar.z * tri[2])).x;
+            double y = (Viewport * Perspective * (bar.x * tri[0] + bar.y * tri[1] + bar.z * tri[2])).y;
+            if (x < 540 && x > 520 && y < 820 && y > 800) {
+                std::cerr << "x: " << x << std::endl;
+                std::cerr << "y: " << y << std::endl;
+                std::cerr << "p.x: " << p.x << std::endl;
+                std::cerr << "p.y: " << p.y << std::endl;
+                std::cerr << "p.z: " << p.z << std::endl;
+                std::cerr << "light map: " << shadow_mask[int(p.x) + int(p.y)*shadow_w] - .03 << std::endl;
+            }
+        }
 
         vec2 uv = bar.x * vert_uv[0] + bar.y * vert_uv[1] + bar.z * vert_uv[2];
         matrix<2,4,double> E = {tri[0]-tri[1],tri[1]-tri[2]};
@@ -156,7 +174,7 @@ int main(int argc, char** argv) {
     vec3 eye {0,0,2};
     vec3 center {0,0,0};
     vec3 up {0,1,0};
-    vec3 sun {100,100,100};
+    vec3 sun {4,4,8};
 
     //shadow rendering pass
     lookat(sun, center, up);
@@ -176,9 +194,13 @@ int main(int argc, char** argv) {
         }
     }
 
-    std::cerr << "here" << std::endl;
+    TGAImage lightbuffer(s_width, s_height, TGAImage::GRAYSCALE);
+    for (int x = 0; x < s_width; x++)
+        for (int y = 0; y < s_height; y++)
+                lightbuffer.set(x, y, {(unsigned char)(std::min(255*zbuffer[x+s_width*y],255.))});
+    lightbuffer.write_tga_file("lightbuffer.tga");
 
-    std::vector<double> shadow_zbuffer = zbuffer;
+    std::vector<double> light_zbuffer = zbuffer;
     matrix<4,4,double> N = Viewport * Perspective * ModelView;
 
     lookat(eye, center, up);
@@ -189,7 +211,7 @@ int main(int argc, char** argv) {
 
     for (int a = 1; a < argc; a++) {
         Model model = Model(argv[a]);
-        PhongShader_nm shader(model, sun, shadow_zbuffer, s_width, s_height, N);
+        PhongShader_nm shader(model, sun, light_zbuffer, s_width, s_height, N);
         for (int i = 0; i < model.numFaces(); i++) {
             Triangle clip = { shader.vertex(i, 0),
                               shader.vertex(i, 1),
@@ -199,11 +221,11 @@ int main(int argc, char** argv) {
     }
 
 
-    // TGAImage depthbuffer(width, height, TGAImage::GRAYSCALE);
-    // for (int x = 0; x < width; x++)
-    //     for (int y = 0; y < height; y++)
-    //             depthbuffer.set(x, y, {(unsigned char)(std::min(255*zbuffer[x+width*y],255.))});
-    // depthbuffer.write_tga_file("depthbuffer.tga");
+    TGAImage depthbuffer(width, height, TGAImage::GRAYSCALE);
+    for (int x = 0; x < width; x++)
+        for (int y = 0; y < height; y++)
+                depthbuffer.set(x, y, {(unsigned char)(std::min(255*zbuffer[x+width*y],255.))});
+    depthbuffer.write_tga_file("depthbuffer.tga");
     
     framebuffer.write_tga_file("framebuffer.tga");
     return 0;
