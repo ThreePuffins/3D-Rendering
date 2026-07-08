@@ -217,6 +217,7 @@ void render(const std::vector<Sphere> &spheres)
 int main(int argc, char **argv)
 {
     std::vector<Sphere> spheres;
+    // position, radius, colour, reflectiveness, transparancy, refraction index, emission colour (only for lights)
     spheres.push_back(Sphere(Vec3f( 0.0, -10004, 20), 10000, Vec3f(0.20, 0.20, 0.20), 0, 0.0));
     spheres.push_back(Sphere(Vec3f( 0.0, 0, 20), 4, Vec3f(1.00, 0.32, 0.36), 0, 1.0, 1.5));
     spheres.push_back(Sphere(Vec3f( 5.0, -1, 15), 3, Vec3f(0.90, 0.76, 0.46), 1, 0.0, 1.5));
