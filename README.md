@@ -75,3 +75,5 @@ phong_nm.out -> Phong shading with smoothing using vertex normals, uv mapping fo
 toon_shading.out -> Basic toon shading with sobel edge detection. `./toon_shading.out path/to/1.obj path.to/2.obj ...`
 
 Each binary was compiled using clang under the C++17 standard
+
+This project has not used any sort of generative AI.
