@@ -1,4 +1,5 @@
-3D_Renderer follows the guide from https://haqr.eu/tinyrenderer/
+# 3D-Rendering
 
+## Overview
+Two 3D rendering implementations, one being a basic ray tracing program based off of [Scratchapixel's raytracer](https://www.scratchapixel.com/lessons/3d-basic-rendering/introduction-to-ray-tracing//raytracing-algorithm-in-a-nutshell.html) and the other being an implementation of [TinyRenderer](https://haqr.eu/tinyrenderer/).
 
-ray_tracing follows the guide from https://www.scratchapixel.com/lessons/3d-basic-rendering/introduction-to-ray-tracing/how-does-it-work.html
