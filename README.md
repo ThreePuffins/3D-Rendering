@@ -48,6 +48,8 @@ Toon Shader - uses original phong shader (+ the shadow mapping) and then sorts e
 ![image](3D_Renderer/examples/toon_shaded.png)
 
 ## Usage
+**Binaries will only run on macos**
+
 ### Raytracer
 Run the executable ray_tracer.out and send the output to a .ppm file (e.g. `./ray_tracer.out > img.ppm`). Alternatively compile ray_tracer.cpp first using clang or g++ and the execute the compiled file. 
 
