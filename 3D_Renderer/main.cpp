@@ -212,7 +212,7 @@ int main(int argc, char** argv) {
     if (argc != 2) {
         std::cerr << "Usage: " << argv[0] << " path/to/.obj" << std::endl;
         return 1;
-    } 
+    }
 
     int width = 1000;
     int height = 1000;
@@ -223,7 +223,7 @@ int main(int argc, char** argv) {
     vec3 up {0,1,0};
     vec3 sun {1,1,1};
 
-    bool edge_detection = true;
+    bool edge_detection = false;
 
     //shadow rendering pass
     lookat(sun, center, up);
@@ -260,7 +260,7 @@ int main(int argc, char** argv) {
 
     for (int a = 1; a < argc; a++) {
         Model model = Model(argv[a]);
-        ToonShader shader(model, sun, light_zbuffer, s_width, s_height, N);
+        PhongShader_nm shader(model, sun, light_zbuffer, s_width, s_height, N);
         for (int i = 0; i < model.numFaces(); i++) {
             Triangle clip = { shader.vertex(i, 0),
                               shader.vertex(i, 1),
