@@ -86,8 +86,8 @@ int main(int argc, char** argv) {
     for (int i = 0; i < model.numFaces(); i++) {
         vec4 clip[3];
         for (int a : {0,1,2}) {
-            vec3 v = model.vert(i, a);
-            clip[a] = Perspective * ModelView * vec4{v.x,v.y,v.z,1.};
+            vec4 v = model.vert(i, a);
+            clip[a] = Perspective * ModelView * v;
         }
 
         TGAColor rnd;

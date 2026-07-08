@@ -53,9 +53,9 @@ int main(int argc, char** argv) {
     TGAImage framebuffer(width, height, TGAImage::RGB);
 
     for (int i = 0; i < model.numFaces(); i++) {
-        auto [x1, y1] = project(model.vert(i, 0));
-        auto [x2, y2] = project(model.vert(i, 1));
-        auto [x3, y3] = project(model.vert(i, 2));
+        auto [x1, y1] = project(model.vert(i, 0).xyz());
+        auto [x2, y2] = project(model.vert(i, 1).xyz());
+        auto [x3, y3] = project(model.vert(i, 2).xyz());
         
         drawLine(x1, x2, y1, y2, framebuffer, blue);
         drawLine(x2, x3, y2, y3, framebuffer, blue);
@@ -63,7 +63,7 @@ int main(int argc, char** argv) {
     }
 
     for (int i = 0; i < model.numVerts(); i++) {
-        auto [x, y] = project(model.vert(i));
+        auto [x, y] = project(model.vert(i).xyz());
         framebuffer.set(x, y, green);
     }
 
