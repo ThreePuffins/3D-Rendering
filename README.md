@@ -10,7 +10,7 @@ Run the executable ray_tracer.out and send the output to a .ppm file (e.g. `./ra
 The sphere objects can be modified in the main function of ray_tracer.cpp before compiling for different scenes.
 
 ### 3D_Renderer
-Executables are found under the bin folder of 3D_Renderer. Each one demonstrates various steps along the way of creating the 3D renderer. Each executable creates a .tga image file as output. Example .obj files are in the objects file.
+Executables are found under the bin folder of 3D_Renderer. Each one demonstrates various steps along the way of creating the 3D renderer. Each executable creates a .tga image file as output as well as a lightbuffer and depthbuffer .tga image. Example .obj files are in the objects file (demon model is taken from TinyRenderer, the floor and terrible looking puffin head were scrappily made by me).
 
 bresenham.out -> Uses bresenham's line drawing algorithm to rasterize lines. Usage: `./bresenham.out`
 
